@@ -1,0 +1,9 @@
+[run]
+concurrency = eventlet
+branch = 1
+source =
+    nameko_opentelemetry
+    tests
+[report]
+show_missing = true
+fail_under = 100
