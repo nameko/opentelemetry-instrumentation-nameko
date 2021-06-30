@@ -2,10 +2,48 @@ import socket
 
 import pytest
 from nameko.web.handlers import Response, http
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace.status import StatusCode
 
 from nameko_opentelemetry.utils import TRUNCATE_MAX_LENGTH
+
+
+class TestCaptureIncomingContext:
+    @pytest.fixture
+    def container(self, container_factory, web_config):
+        class Service:
+            name = "service"
+
+            @http("GET", "/resource")
+            def get_resource(self, request):
+                return "OK"
+
+        container = container_factory(Service)
+        container.start()
+
+        return container
+
+    @pytest.fixture
+    def instrument_requests(self):
+        instrumentor = RequestsInstrumentor()
+        instrumentor.instrument()
+        yield
+        instrumentor.uninstrument()
+
+    def test_incoming_context(
+        self, container, web_session, memory_exporter, instrument_requests
+    ):
+        resp = web_session.get("/resource")
+        assert resp.status_code == 200
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 2
+
+        server_span, client_span = spans
+
+        assert client_span.parent is None
+        assert server_span.parent.span_id == client_span.get_span_context().span_id
 
 
 class TestSpanName:
