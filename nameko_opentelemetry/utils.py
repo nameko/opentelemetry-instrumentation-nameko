@@ -6,6 +6,8 @@ from importlib import import_module
 import six
 
 
+TRUNCATE_MAX_LENGTH = 200  # TODO make configurable somehow
+
 logger = logging.getLogger(__name__)
 
 
@@ -64,3 +66,9 @@ def import_by_path(dotted_path):
                 module_path, class_name
             )
         )
+
+
+def truncate(value, max_len=TRUNCATE_MAX_LENGTH):
+    if len(value) > max_len:
+        return value[:max_len], True
+    return value, False

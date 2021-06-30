@@ -7,7 +7,7 @@ from nameko.testing.services import dummy, entrypoint_hook
 from nameko.utils import REDACTED
 from opentelemetry.trace.status import StatusCode
 
-from nameko_opentelemetry.entrypoints import TRUNCATE_MAX_LENGTH
+from nameko_opentelemetry.utils import TRUNCATE_MAX_LENGTH
 
 
 class TestSpanAttributes:
@@ -228,7 +228,7 @@ class TestCallArgs:
 
         attributes = spans[0].attributes
         assert len(attributes["call_args"]) == TRUNCATE_MAX_LENGTH
-        assert attributes["call_args_truncated"] is True
+        assert attributes["call_args_truncated"] == "True"
 
     def test_call_args_redaction(self, container, memory_exporter):
 
@@ -242,7 +242,7 @@ class TestCallArgs:
         assert attributes["call_args"] == json.dumps(
             {"arg": "arg", "kwarg": {"foo": REDACTED, "bar": "BAR"}}
         )
-        assert attributes["call_args_redacted"] is True
+        assert attributes["call_args_redacted"] == "True"
 
 
 class TestStatus:

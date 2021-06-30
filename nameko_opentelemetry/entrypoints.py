@@ -23,16 +23,9 @@ DEFAULT_ADAPTERS = {
         "nameko_opentelemetry.http.HttpEntrypointAdapter"
     ),
 }
-TRUNCATE_MAX_LENGTH = 200
 
 active_spans = WeakKeyDictionary()
 adapter_types = defaultdict(lambda: EntrypointAdapter)
-
-
-def truncate(value, max_len=TRUNCATE_MAX_LENGTH):
-    if len(value) > max_len:
-        return value[:max_len], True
-    return value, False
 
 
 class EntrypointAdapter:
@@ -103,12 +96,12 @@ class EntrypointAdapter:
             del call_args["self"]
             redacted = False
 
-        call_args, truncated = truncate(json.dumps(call_args))
+        call_args, truncated = utils.truncate(json.dumps(call_args))
 
         return {
             "call_args": call_args,
-            "call_args_redacted": redacted,
-            "call_args_truncated": truncated,
+            "call_args_redacted": str(redacted),
+            "call_args_truncated": str(truncated),
         }
 
     def get_exception_attributes(self, exc_info):
