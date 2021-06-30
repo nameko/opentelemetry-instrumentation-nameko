@@ -24,12 +24,12 @@ class NamekoInstrumentor(BaseInstrumentor):
         entrypoints.instrument(tracer, kwargs.get("entrypoint_adapters", {}))
         http.instrument(tracer)
         rpc.instrument(tracer)
-        # events.instrument(tracer)
+        events.instrument(tracer)
         # messaging.instrument(tracer)
 
     def _uninstrument(self, **kwargs):
         entrypoints.uninstrument()
         http.uninstrument()
         rpc.uninstrument()
-        # events.uninstrument()
+        events.uninstrument()
         # messaging.uninstrument()
