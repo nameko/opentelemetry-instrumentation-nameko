@@ -1,6 +1,7 @@
 import socket
 
 import pytest
+from nameko.testing.services import entrypoint_waiter
 from nameko.web.handlers import Response, http
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry.semconv.trace import SpanAttributes
@@ -35,7 +36,9 @@ class TestCaptureIncomingContext:
     def test_incoming_context(
         self, container, web_session, memory_exporter, instrument_requests
     ):
-        resp = web_session.get("/resource")
+        with entrypoint_waiter(container, "get_resource"):
+            resp = web_session.get("/resource")
+
         assert resp.status_code == 200
 
         spans = memory_exporter.get_finished_spans()
@@ -65,7 +68,9 @@ class TestSpanName:
 
     def test_match(self, container, web_session, memory_exporter):
 
-        resp = web_session.get("/resource/1")
+        with entrypoint_waiter(container, "get_resource"):
+            resp = web_session.get("/resource/1")
+
         assert resp.status_code == 200
 
         spans = memory_exporter.get_finished_spans()
@@ -77,6 +82,8 @@ class TestSpanName:
 
         resp = web_session.get("/missing")
         assert resp.status_code == 404
+
+        container.stop()
 
         spans = memory_exporter.get_finished_spans()
         assert len(spans) == 1
@@ -107,6 +114,8 @@ class TestNoEntrypointFired:
         resp = web_session.get("/missing")
         assert resp.status_code == 404
 
+        container.stop()
+
         spans = memory_exporter.get_finished_spans()
         assert len(spans) == 1
 
@@ -122,6 +131,8 @@ class TestNoEntrypointFired:
 
         resp = web_session.post("/resource")
         assert resp.status_code == 405
+
+        container.stop()
 
         spans = memory_exporter.get_finished_spans()
         assert len(spans) == 1
@@ -152,7 +163,9 @@ class TestSpanAttributes:
 
     def test_common(self, container, web_session, memory_exporter):
 
-        resp = web_session.get("/resource")
+        with entrypoint_waiter(container, "get_resource"):
+            resp = web_session.get("/resource")
+
         assert resp.status_code == 200
 
         spans = memory_exporter.get_finished_spans()
@@ -183,7 +196,9 @@ class TestCallArgs:
     def test_wsgi_common(self, container, web_session, memory_exporter):
         """ These are determined by the Opentelemetry WSGI middleware module
         """
-        resp = web_session.get("/resource")
+        with entrypoint_waiter(container, "get_resource"):
+            resp = web_session.get("/resource")
+
         assert resp.status_code == 200
 
         spans = memory_exporter.get_finished_spans()
@@ -195,7 +210,9 @@ class TestCallArgs:
         # no need to test them exhaustively
 
     def test_request_data(self, container, web_session, memory_exporter):
-        resp = web_session.get("/resource", data="foobar")
+        with entrypoint_waiter(container, "get_resource"):
+            resp = web_session.get("/resource", data="foobar")
+
         assert resp.status_code == 200
 
         spans = memory_exporter.get_finished_spans()
@@ -205,7 +222,12 @@ class TestCallArgs:
         assert attributes["request.data"] == "foobar"
 
     def test_request_headers(self, container, web_session, memory_exporter):
-        resp = web_session.get("/resource", headers={"auth": "should-be-secret"})
+
+        with entrypoint_waiter(container, "get_resource"):
+            resp = web_session.get(
+                "/resource", headers={"auth": "should-be-secret"}
+            )  # XXX
+
         assert resp.status_code == 200
 
         spans = memory_exporter.get_finished_spans()
@@ -239,7 +261,9 @@ class TestExceptions:
 
     def test_exception(self, container, web_session, memory_exporter):
 
-        resp = web_session.post("/resource")
+        with entrypoint_waiter(container, "raises"):
+            resp = web_session.post("/resource")
+
         assert resp.status_code == 500
 
         spans = memory_exporter.get_finished_spans()
@@ -259,7 +283,9 @@ class TestExceptions:
 
     def test_expected_exception(self, container, web_session, memory_exporter):
 
-        resp = web_session.delete("/resource")
+        with entrypoint_waiter(container, "raises_expected"):
+            resp = web_session.delete("/resource")
+
         assert resp.status_code == 400
 
         spans = memory_exporter.get_finished_spans()
@@ -313,7 +339,9 @@ class TestResult:
 
     def test_simple_result(self, container, web_session, memory_exporter):
 
-        resp = web_session.get("/simple")
+        with entrypoint_waiter(container, "simple_result"):
+            resp = web_session.get("/simple")
+
         assert resp.status_code == 200
 
         spans = memory_exporter.get_finished_spans()
@@ -328,7 +356,9 @@ class TestResult:
 
     def test_tuple_result(self, container, web_session, memory_exporter):
 
-        resp = web_session.get("/tuple")
+        with entrypoint_waiter(container, "tuple_result"):
+            resp = web_session.get("/tuple")
+
         assert resp.status_code == 401
 
         spans = memory_exporter.get_finished_spans()
@@ -343,7 +373,9 @@ class TestResult:
 
     def test_response_result(self, container, web_session, memory_exporter):
 
-        resp = web_session.get("/response")
+        with entrypoint_waiter(container, "response_result"):
+            resp = web_session.get("/response")
+
         assert resp.status_code == 403
 
         spans = memory_exporter.get_finished_spans()
@@ -358,7 +390,9 @@ class TestResult:
 
     def test_truncated_result(self, container, web_session, memory_exporter):
 
-        resp = web_session.get("/big")
+        with entrypoint_waiter(container, "truncate_result"):
+            resp = web_session.get("/big")
+
         assert resp.status_code == 200
 
         spans = memory_exporter.get_finished_spans()
@@ -418,7 +452,9 @@ class TestStatus:
 
     def test_success(self, container, web_session, memory_exporter):
 
-        resp = web_session.get("/resource")
+        with entrypoint_waiter(container, "get_resource"):
+            resp = web_session.get("/resource")
+
         assert resp.status_code == 200
 
         spans = memory_exporter.get_finished_spans()
@@ -430,7 +466,9 @@ class TestStatus:
 
     def test_redirect(self, container, web_session, memory_exporter):
 
-        resp = web_session.get("/redirect")
+        with entrypoint_waiter(container, "get_redirect"):
+            resp = web_session.get("/redirect")
+
         assert resp.status_code == 302
 
         spans = memory_exporter.get_finished_spans()
@@ -442,7 +480,9 @@ class TestStatus:
 
     def test_status_code(self, container, web_session, memory_exporter):
 
-        resp = web_session.get("/unauthorized")
+        with entrypoint_waiter(container, "get_status_code"):
+            resp = web_session.get("/unauthorized")
+
         assert resp.status_code == 401
 
         spans = memory_exporter.get_finished_spans()
@@ -454,7 +494,9 @@ class TestStatus:
 
     def test_response_object(self, container, web_session, memory_exporter):
 
-        resp = web_session.get("/response")
+        with entrypoint_waiter(container, "get_response"):
+            resp = web_session.get("/response")
+
         assert resp.status_code == 403
 
         spans = memory_exporter.get_finished_spans()
@@ -466,7 +508,9 @@ class TestStatus:
 
     def test_exception(self, container, web_session, memory_exporter):
 
-        resp = web_session.post("/resource")
+        with entrypoint_waiter(container, "raises"):
+            resp = web_session.post("/resource")
+
         assert resp.status_code == 500
 
         spans = memory_exporter.get_finished_spans()
@@ -479,7 +523,9 @@ class TestStatus:
 
     def test_expected_exception(self, container, web_session, memory_exporter):
 
-        resp = web_session.delete("/resource")
+        with entrypoint_waiter(container, "raises_expected"):
+            resp = web_session.delete("/resource")
+
         assert resp.status_code == 400
 
         spans = memory_exporter.get_finished_spans()
