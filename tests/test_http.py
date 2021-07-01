@@ -4,6 +4,7 @@ import pytest
 from nameko.web.handlers import Response, http
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry.semconv.trace import SpanAttributes
+from opentelemetry.trace import SpanKind
 from opentelemetry.trace.status import StatusCode
 
 from nameko_opentelemetry.utils import TRUNCATE_MAX_LENGTH
@@ -40,7 +41,8 @@ class TestCaptureIncomingContext:
         spans = memory_exporter.get_finished_spans()
         assert len(spans) == 2
 
-        server_span, client_span = spans
+        client_span = list(filter(lambda span: span.kind == SpanKind.CLIENT, spans))[0]
+        server_span = list(filter(lambda span: span.kind == SpanKind.SERVER, spans))[0]
 
         assert client_span.parent is None
         assert server_span.parent.span_id == client_span.get_span_context().span_id
