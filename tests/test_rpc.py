@@ -1,3 +1,4 @@
+import uuid
 from unittest.mock import Mock
 
 import pytest
@@ -34,7 +35,9 @@ class TestCaptureIncomingContext:
                 yield client
         if request.param == "dependency_provider":
             dp = get_extension(container, ServiceRpc)
-            yield dp.get_dependency(Mock(context_data={}))
+            yield dp.get_dependency(
+                Mock(context_data={"call_id": f"service.method.{uuid.uuid4()}"})
+            )
 
     def test_incoming_context(self, container, client, memory_exporter):
 
