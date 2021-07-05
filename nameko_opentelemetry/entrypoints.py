@@ -113,7 +113,10 @@ class EntrypointAdapter:
                 del call_args["self"]
                 redacted = False
 
-            call_args, truncated = utils.truncate(utils.serialise_to_string(call_args))
+            call_args, truncated = utils.truncate(
+                utils.serialise_to_string(call_args),
+                max_len=self.config.get("truncate_max_length"),
+            )
 
             attributes.update(
                 {

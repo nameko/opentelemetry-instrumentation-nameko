@@ -47,7 +47,9 @@ def collect_client_attributes(
         "nameko.events.event_type": event_type,
     }
     if config.get("send_request_payloads"):
-        data, truncated = truncate(serialise_to_string(event_data))
+        data, truncated = truncate(
+            serialise_to_string(event_data), max_len=config.get("truncate_max_length")
+        )
         attributes.update(
             {
                 "nameko.events.event_data": data,

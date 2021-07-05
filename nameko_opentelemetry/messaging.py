@@ -43,7 +43,9 @@ def get_dependency(tracer, config, wrapped, instance, args, kwargs):
         attributes = {"nameko.messaging.exchange": target}
         if config.get("send_request_payloads"):
 
-            data, truncated = truncate(serialise_to_string(msg))
+            data, truncated = truncate(
+                serialise_to_string(msg), max_len=config.get("truncate_max_length")
+            )
             attributes.update(
                 {
                     "nameko.messaging.payload": data,

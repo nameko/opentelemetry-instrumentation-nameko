@@ -93,7 +93,9 @@ class HttpEntrypointAdapter(EntrypointAdapter):
         }
 
         if self.config.get("send_response_payloads"):
-            response, truncated = utils.truncate(result.get_data())
+            response, truncated = utils.truncate(
+                result.get_data(), max_len=self.config.get("truncate_max_length")
+            )
             attributes.update(
                 {
                     "response.data": response,  # do we want to send this?
