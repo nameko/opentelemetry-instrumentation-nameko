@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import pytest
 from nameko.testing.services import entrypoint_waiter
 from nameko.timer import timer

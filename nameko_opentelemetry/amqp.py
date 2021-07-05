@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from nameko_opentelemetry.utils import serialise_to_string
 
 

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import pytest
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import inspect
 from functools import partial
 
@@ -16,11 +17,14 @@ from nameko_opentelemetry.entrypoints import EntrypointAdapter
 
 
 class HttpEntrypointAdapter(EntrypointAdapter):
-    """ Implemented according to https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md
+    """ Implemented according to
+    https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md
     """
 
     def get_metadata(self):
-        # TODO: why doesn't http entrypoint populate context data? alternatively, why do AMQP (and gRPC?) extensions feel they can turn _all_ amqp headers into context data?
+        # TODO: why doesn't http entrypoint populate context data?
+        # alternatively, why do AMQP (and gRPC?) extensions feel they can turn
+        # _all_ amqp headers into context data?
         return self.worker_ctx.args[0].headers
 
     def get_span_name(self):

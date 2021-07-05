@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import collections.abc
 import json
 import logging

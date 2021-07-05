@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 

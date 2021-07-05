@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from nameko_opentelemetry.entrypoints import EntrypointAdapter
 
 

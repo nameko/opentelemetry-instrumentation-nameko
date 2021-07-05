@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from functools import partial
 from weakref import WeakKeyDictionary
 
@@ -16,11 +17,7 @@ from nameko_opentelemetry.amqp import (
     amqp_publisher_attributes,
 )
 from nameko_opentelemetry.entrypoints import EntrypointAdapter
-from nameko_opentelemetry.utils import (
-    call_function_get_frame,
-    serialise_to_string,
-    truncate,
-)
+from nameko_opentelemetry.utils import call_function_get_frame
 
 
 publishers = {}
@@ -98,6 +95,7 @@ def initiate_call(tracer, config, wrapped, instance, args, kwargs):
         {
             "routing_key": client.identifier,
             "mandatory": True,
+            # XXX EXCLUDE if not send_headers (refactor to do publisher.publish first)
             "extra_headers": encode_to_headers(client.context_data),
         },
     )
@@ -140,7 +138,7 @@ def consumer_handle_message(tracer, config, wrapped, instance, args, kwargs):
     """ Wrap nameko.rpc.RpcConsumer.handle_message.
 
     In the case where an RPC message is received for a method that doesn't exist,
-    no entrypoint will fire and so the entrypoint instrumentation won't 
+    no entrypoint will fire and so the entrypoint instrumentation won't
     generate a span. We generate one here instead.
 
     TODO make sure to add server attributes.

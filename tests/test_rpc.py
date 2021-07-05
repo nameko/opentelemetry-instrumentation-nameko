@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import uuid
 from unittest.mock import Mock
 
@@ -7,7 +8,6 @@ from nameko.rpc import ServiceRpc, rpc
 from nameko.standalone.rpc import ServiceRpcClient
 from nameko.testing.services import entrypoint_waiter
 from nameko.testing.utils import get_extension
-from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 from opentelemetry.trace.status import StatusCode
 

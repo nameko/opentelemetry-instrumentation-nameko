@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from unittest.mock import Mock
 
 import pytest
@@ -5,12 +6,9 @@ from kombu.messaging import Exchange, Queue
 from nameko.messaging import Publisher, consume
 from nameko.testing.services import entrypoint_waiter
 from nameko.testing.utils import get_extension
-from opentelemetry import trace
-from opentelemetry.propagate import inject
 from opentelemetry.trace import SpanKind
 
 from nameko_opentelemetry import active_tracer
-from nameko_opentelemetry.version import __version__
 
 
 exchange = Exchange(name="test")
