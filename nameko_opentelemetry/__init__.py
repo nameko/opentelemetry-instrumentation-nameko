@@ -15,7 +15,7 @@ class NamekoInstrumentor(BaseInstrumentor):
     def instrumentation_dependencies(self):
         return _instruments
 
-    def _instrument(self, **kwargs):
+    def _instrument(self, **config):
         """
         ...
         """
@@ -25,11 +25,11 @@ class NamekoInstrumentor(BaseInstrumentor):
         # client_response_hook = kwargs.get("client_response_hook", None)
         # server_request_hook = kwargs.get("server_request_hook", None)
 
-        entrypoints.instrument(tracer, kwargs.get("entrypoint_adapters", {}))
-        http.instrument(tracer)
-        rpc.instrument(tracer)
-        events.instrument(tracer)
-        messaging.instrument(tracer)
+        entrypoints.instrument(tracer, config)
+        http.instrument(tracer, config)
+        rpc.instrument(tracer, config)
+        events.instrument(tracer, config)
+        messaging.instrument(tracer, config)
 
     def _uninstrument(self, **kwargs):
         entrypoints.uninstrument()

@@ -48,28 +48,24 @@ class HttpEntrypointAdapter(EntrypointAdapter):
         request = self.request
         data = request.data or request.form
 
-        headers = []
-        for key, value in request.environ.items():
-            key = str(key)
-            if key.startswith("HTTP_") and key not in (
-                "HTTP_CONTENT_TYPE",
-                "HTTP_CONTENT_LENGTH",
-            ):
-                headers.append((key[5:].lower(), str(value)))
-            elif key in ("CONTENT_TYPE", "CONTENT_LENGTH"):
-                headers.append((key.lower(), str(value)))
-
         attributes.update(wsgi.collect_request_attributes(request.environ))
-        attributes.update(
-            {
-                "request.data": utils.serialise_to_string(
-                    data
-                ),  # do we want to send this?
-                "request.headers": utils.serialise_to_string(
-                    headers
-                ),  # again do we want to send this? + scrubbing?
-            }
-        )
+
+        if self.config.get("send_headers"):
+            headers = []
+            for key, value in request.environ.items():
+                key = str(key)
+                if key.startswith("HTTP_") and key not in (
+                    "HTTP_CONTENT_TYPE",
+                    "HTTP_CONTENT_LENGTH",
+                ):
+                    headers.append((key[5:].lower(), str(value)))
+                elif key in ("CONTENT_TYPE", "CONTENT_LENGTH"):
+                    headers.append((key.lower(), str(value)))
+
+            attributes.update({"request.headers": utils.serialise_to_string(headers)})
+
+        if self.config.get("send_request_payloads"):
+            attributes.update({"request.data": utils.serialise_to_string(data)})
 
         return attributes
 
@@ -90,15 +86,22 @@ class HttpEntrypointAdapter(EntrypointAdapter):
 
             result = Response(payload, headers=headers.items(), status=status)
 
-        response, truncated = utils.truncate(result.get_data())
-
-        return {
+        attributes = {
             "response.content_type": result.content_type,
-            "response.data": response,  # do we want to send this?
-            "response.data_truncated": str(truncated),
             SpanAttributes.HTTP_RESPONSE_CONTENT_LENGTH: result.content_length,
             SpanAttributes.HTTP_STATUS_CODE: result.status_code,
         }
+
+        if self.config.get("send_response_payloads"):
+            response, truncated = utils.truncate(result.get_data())
+            attributes.update(
+                {
+                    "response.data": response,  # do we want to send this?
+                    "response.data_truncated": str(truncated),
+                }
+            )
+
+        return attributes
 
     def get_status(self, result, exc_info):
         if exc_info:
@@ -116,7 +119,7 @@ class HttpEntrypointAdapter(EntrypointAdapter):
         )
 
 
-def wsgi_app_call(tracer, wrapped, instance, args, kwargs):
+def wsgi_app_call(tracer, config, wrapped, instance, args, kwargs):
     environ, start_response = args
     try:
         instance.url_map.bind_to_environ(environ).match()
@@ -131,9 +134,9 @@ def wsgi_app_call(tracer, wrapped, instance, args, kwargs):
         return wrapped(*args, **kwargs)
 
 
-def instrument(tracer):
+def instrument(tracer, config):
     wrap_function_wrapper(
-        "nameko.web.server", "WsgiApp.__call__", partial(wsgi_app_call, tracer),
+        "nameko.web.server", "WsgiApp.__call__", partial(wsgi_app_call, tracer, config),
     )
 
 

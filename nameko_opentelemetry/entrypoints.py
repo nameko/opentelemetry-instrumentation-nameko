@@ -1,5 +1,4 @@
 import inspect
-import json
 import socket
 from collections import defaultdict
 from functools import partial
@@ -37,8 +36,9 @@ adapter_types = defaultdict(lambda: EntrypointAdapter)
 
 
 class EntrypointAdapter:
-    def __init__(self, worker_ctx):
+    def __init__(self, worker_ctx, config):
         self.worker_ctx = worker_ctx
+        self.config = config
 
     def get_span_name(self):
         return (
@@ -79,34 +79,51 @@ class EntrypointAdapter:
         """
         entrypoint = self.worker_ctx.entrypoint
 
-        if getattr(entrypoint, "sensitive_arguments", None):
-            call_args = get_redacted_args(
-                entrypoint, *self.worker_ctx.args, **self.worker_ctx.kwargs
-            )
-            redacted = True
-        else:
-            method = getattr(entrypoint.container.service_cls, entrypoint.method_name)
-            call_args = inspect.getcallargs(
-                method, None, *self.worker_ctx.args, **self.worker_ctx.kwargs
-            )
-            del call_args["self"]
-            redacted = False
-
-        call_args, truncated = utils.truncate(utils.serialise_to_string(call_args))
-
-        return {
+        attributes = {
             "service_name": self.worker_ctx.service_name,
             "entrypoint_type": type(entrypoint).__name__,
             "method_name": entrypoint.method_name,
-            "context_data": utils.serialise_to_string(
-                self.worker_ctx.data
-            ),  # TODO scrub!
             "active_workers": self.worker_ctx.container._worker_pool.running(),
             "available_workers": self.worker_ctx.container._worker_pool.free(),
-            "call_args": call_args,
-            "call_args_redacted": str(redacted),
-            "call_args_truncated": str(truncated),
         }
+
+        if self.config.get("send_headers"):
+            attributes.update(
+                {
+                    "context_data": utils.serialise_to_string(
+                        self.worker_ctx.data
+                    ),  # TODO scrub!
+                }
+            )
+
+        if self.config.get("send_request_payloads"):
+
+            if getattr(entrypoint, "sensitive_arguments", None):
+                call_args = get_redacted_args(
+                    entrypoint, *self.worker_ctx.args, **self.worker_ctx.kwargs
+                )
+                redacted = True
+            else:
+                method = getattr(
+                    entrypoint.container.service_cls, entrypoint.method_name
+                )
+                call_args = inspect.getcallargs(
+                    method, None, *self.worker_ctx.args, **self.worker_ctx.kwargs
+                )
+                del call_args["self"]
+                redacted = False
+
+            call_args, truncated = utils.truncate(utils.serialise_to_string(call_args))
+
+            attributes.update(
+                {
+                    "call_args": call_args,
+                    "call_args_redacted": str(redacted),
+                    "call_args_truncated": str(truncated),
+                }
+            )
+
+        return attributes
 
     def get_exception_attributes(self, exc_info):
         """ Additional attributes to save alongside a worker exception.
@@ -126,7 +143,11 @@ class EntrypointAdapter:
     def get_result_attributes(self, result):
         """ Attributes describing the entrypoint method result
         """
-        return {"result": utils.safe_for_serialisation(result or "")}
+        if self.config.get("send_response_payloads"):
+            attributes = {"result": utils.safe_for_serialisation(result or "")}
+        else:
+            attributes = {}
+        return attributes
 
     def get_status(self, result, exc_info):
         """ Span status for this entrypoint method
@@ -143,15 +164,15 @@ class EntrypointAdapter:
         return Status(StatusCode.OK)
 
 
-def adapter_factory(worker_ctx):
+def adapter_factory(worker_ctx, config):
     adapter_class = adapter_types[type(worker_ctx.entrypoint)]
-    return adapter_class(worker_ctx)
+    return adapter_class(worker_ctx, config)
 
 
-def worker_setup(tracer, wrapped, instance, args, kwargs):
+def worker_setup(tracer, config, wrapped, instance, args, kwargs):
     (worker_ctx,) = args
 
-    adapter = adapter_factory(worker_ctx)
+    adapter = adapter_factory(worker_ctx, config)
     ctx = extract(adapter.get_metadata())
     token = context.attach(ctx)
 
@@ -170,7 +191,7 @@ def worker_setup(tracer, wrapped, instance, args, kwargs):
     adapter.start_span(span)
 
 
-def worker_result(tracer, wrapped, instance, args, kwargs):
+def worker_result(tracer, config, wrapped, instance, args, kwargs):
     (worker_ctx, result, exc_info) = args
 
     activated = active_spans.get(worker_ctx)
@@ -191,10 +212,11 @@ def worker_result(tracer, wrapped, instance, args, kwargs):
     context.detach(token)
 
 
-def instrument(tracer, entrypoint_adapters):
+def instrument(tracer, config):
 
     adapter_config = DEFAULT_ADAPTERS.copy()
-    adapter_config.update(entrypoint_adapters)
+    adapter_config.update(config.get("entrypoint_adapters", {}))
+
     for entrypoint_path, adapter_path in adapter_config.items():
         entrypoint_class = utils.import_by_path(entrypoint_path)
         adapter_class = utils.import_by_path(adapter_path)
@@ -203,12 +225,12 @@ def instrument(tracer, entrypoint_adapters):
     wrap_function_wrapper(
         "nameko.containers",
         "ServiceContainer._worker_setup",
-        partial(worker_setup, tracer),
+        partial(worker_setup, tracer, config),
     )
     wrap_function_wrapper(
         "nameko.containers",
         "ServiceContainer._worker_result",
-        partial(worker_result, tracer),
+        partial(worker_result, tracer, config),
     )
 
 

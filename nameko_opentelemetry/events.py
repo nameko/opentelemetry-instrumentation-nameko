@@ -39,20 +39,26 @@ class EventHandlerEntrypointAdapter(EntrypointAdapter):
         return attrs
 
 
-def collect_client_attributes(exchange_name, event_type, event_data, publisher, kwargs):
-    data, truncated = truncate(serialise_to_string(event_data))
-
+def collect_client_attributes(
+    config, exchange_name, event_type, event_data, publisher, kwargs
+):
     attributes = {
         "nameko.events.exchange": exchange_name,
         "nameko.events.event_type": event_type,
-        "nameko.events.event_data": data,
-        "nameko.events.event_data_truncated": str(truncated),
     }
+    if config.get("send_request_payloads"):
+        data, truncated = truncate(serialise_to_string(event_data))
+        attributes.update(
+            {
+                "nameko.events.event_data": data,
+                "nameko.events.event_data_truncated": str(truncated),
+            }
+        )
     attributes.update(amqp_publisher_attributes(publisher, kwargs))
     return attributes
 
 
-def get_dependency(tracer, wrapped, instance, args, kwargs):
+def get_dependency(tracer, config, wrapped, instance, args, kwargs):
 
     dispatcher = instance
     (worker_ctx,) = args
@@ -61,6 +67,7 @@ def get_dependency(tracer, wrapped, instance, args, kwargs):
         event_type, event_data = args
 
         attributes = collect_client_attributes(
+            config,
             dispatcher.exchange.name,
             event_type,
             event_data,
@@ -80,7 +87,7 @@ def get_dependency(tracer, wrapped, instance, args, kwargs):
     return FunctionWrapper(dispatch, wrapped_dispatch)
 
 
-def event_dispatcher(tracer, wrapped, instance, args, kwargs):
+def event_dispatcher(tracer, config, wrapped, instance, args, kwargs):
 
     headers = kwargs.get("headers", {})
     kwargs["headers"] = headers
@@ -96,7 +103,7 @@ def event_dispatcher(tracer, wrapped, instance, args, kwargs):
         exchange = get_event_exchange(service_name)
 
         attributes = collect_client_attributes(
-            exchange.name, event_type, event_data, publisher, kwargs,
+            config, exchange.name, event_type, event_data, publisher, kwargs,
         )
 
         with tracer.start_as_current_span(
@@ -110,17 +117,17 @@ def event_dispatcher(tracer, wrapped, instance, args, kwargs):
     return FunctionWrapper(dispatch, wrapped_dispatch)
 
 
-def instrument(tracer):
+def instrument(tracer, config):
     wrap_function_wrapper(
         "nameko.events",
         "EventDispatcher.get_dependency",
-        partial(get_dependency, tracer),
+        partial(get_dependency, tracer, config),
     )
 
     wrap_function_wrapper(
         "nameko.standalone.events",
         "event_dispatcher",
-        partial(event_dispatcher, tracer),
+        partial(event_dispatcher, tracer, config),
     )
 
 

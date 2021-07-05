@@ -19,11 +19,22 @@ def trace_provider(memory_exporter):
     trace.set_tracer_provider(provider)
 
 
+@pytest.fixture
+def config():
+    return {
+        "send_headers": True,
+        "send_request_payloads": True,
+        "send_response_payloads": True,
+        "send_context_data": True,  # XXX?
+        "scrubbers": ["a class reference", "another class reference"],
+    }
+
+
 @pytest.fixture(autouse=True)
-def instrument(trace_provider, memory_exporter):
+def instrument(trace_provider, memory_exporter, config):
     instrumentor = NamekoInstrumentor()
 
-    instrumentor.instrument()
+    instrumentor.instrument(**config)
     yield
     memory_exporter.clear()
     instrumentor.uninstrument()

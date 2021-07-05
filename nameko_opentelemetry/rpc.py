@@ -45,7 +45,7 @@ def collect_client_attributes(target_service, target_method, publisher, kwargs):
     return attributes
 
 
-def get_dependency(tracer, wrapped, instance, args, kwargs):
+def get_dependency(tracer, config, wrapped, instance, args, kwargs):
     """ Wrap nameko.rpc.ClusterRpc.get_dependency so we can save a reference to
     the underlying nameko.amqp.publish.Publisher, which we use in `initiate_call`
     to extract the AMQP attributes.
@@ -62,7 +62,7 @@ def get_dependency(tracer, wrapped, instance, args, kwargs):
     return client
 
 
-def cluster_rpc_client_init(tracer, wrapped, instance, args, kwargs):
+def cluster_rpc_client_init(tracer, config, wrapped, instance, args, kwargs):
     """ Wrap nameko.standalone.rpc.ClusterRpcClient.__init__ so we can save a
     reference to the underlying nameko.amqp.publish.Publisher, which we use in
     `initiate_call` to extract the AMQP attributes.
@@ -80,7 +80,7 @@ def cluster_rpc_client_init(tracer, wrapped, instance, args, kwargs):
     return client
 
 
-def initiate_call(tracer, wrapped, instance, args, kwargs):
+def initiate_call(tracer, config, wrapped, instance, args, kwargs):
     """ Wrap nameko.rpc.Client._call, so that we can start a span when an RPC call
     is initiated. This code path is active in the nameko.rpc.ClusterRpc and
     nameko.rpc.ServiceRpc dependency providers, as well as the standalone client
@@ -122,7 +122,7 @@ def initiate_call(tracer, wrapped, instance, args, kwargs):
     return rpc_call
 
 
-def get_response(tracer, wrapped, instance, args, kwargs):
+def get_response(tracer, config, wrapped, instance, args, kwargs):
     """ Wrap nameko.rpc.Client._call, so that we can terminate the active span.
 
     This code path is active in the nameko.rpc.ClusterRpc and nameko.rpc.ServiceRpc
@@ -136,7 +136,7 @@ def get_response(tracer, wrapped, instance, args, kwargs):
     return resp
 
 
-def consumer_handle_message(tracer, wrapped, instance, args, kwargs):
+def consumer_handle_message(tracer, config, wrapped, instance, args, kwargs):
     """ Wrap nameko.rpc.RpcConsumer.handle_message.
 
     In the case where an RPC message is received for a method that doesn't exist,
@@ -158,7 +158,7 @@ def consumer_handle_message(tracer, wrapped, instance, args, kwargs):
         return wrapped(*args, **kwargs)
 
 
-def entrypoint_handle_message(tracer, wrapped, instance, args, kwargs):
+def entrypoint_handle_message(tracer, config, wrapped, instance, args, kwargs):
     """ Wrap nameko.rpc.Rpc.handle_message.
 
     In the case where an RPC message is received for a valid method, but with an
@@ -178,26 +178,32 @@ def entrypoint_handle_message(tracer, wrapped, instance, args, kwargs):
         return wrapped(*args, **kwargs)
 
 
-def instrument(tracer):
+def instrument(tracer, config):
     wrap_function_wrapper(
-        "nameko.rpc", "ClusterRpc.get_dependency", partial(get_dependency, tracer)
+        "nameko.rpc",
+        "ClusterRpc.get_dependency",
+        partial(get_dependency, tracer, config),
     )
     wrap_function_wrapper(
         "nameko.standalone.rpc",
         "ClusterRpcClient.__init__",
-        partial(cluster_rpc_client_init, tracer),
+        partial(cluster_rpc_client_init, tracer, config),
     )
-    wrap_function_wrapper("nameko.rpc", "Client._call", partial(initiate_call, tracer))
     wrap_function_wrapper(
-        "nameko.rpc", "RpcCall.get_response", partial(get_response, tracer)
+        "nameko.rpc", "Client._call", partial(initiate_call, tracer, config)
+    )
+    wrap_function_wrapper(
+        "nameko.rpc", "RpcCall.get_response", partial(get_response, tracer, config)
     )
     wrap_function_wrapper(
         "nameko.rpc",
         "RpcConsumer.handle_message",
-        partial(consumer_handle_message, tracer),
+        partial(consumer_handle_message, tracer, config),
     )
     wrap_function_wrapper(
-        "nameko.rpc", "Rpc.handle_message", partial(entrypoint_handle_message, tracer),
+        "nameko.rpc",
+        "Rpc.handle_message",
+        partial(entrypoint_handle_message, tracer, config),
     )
 
 

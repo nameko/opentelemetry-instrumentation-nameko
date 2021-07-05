@@ -29,7 +29,7 @@ class ConsumerEntrypointAdapter(EntrypointAdapter):
         return attrs
 
 
-def get_dependency(tracer, wrapped, instance, args, kwargs):
+def get_dependency(tracer, config, wrapped, instance, args, kwargs):
 
     (worker_ctx,) = args
     publisher = instance
@@ -39,13 +39,17 @@ def get_dependency(tracer, wrapped, instance, args, kwargs):
         (msg,) = args
 
         target = exchange and exchange.name or "default-exchange"
-        data, truncated = truncate(serialise_to_string(msg))
 
-        attributes = {
-            "nameko.messaging.exchange": target,
-            "nameko.messaging.payload": data,
-            "nameko.messaging.payload_truncated": str(truncated),
-        }
+        attributes = {"nameko.messaging.exchange": target}
+        if config.get("send_request_payloads"):
+
+            data, truncated = truncate(serialise_to_string(msg))
+            attributes.update(
+                {
+                    "nameko.messaging.payload": data,
+                    "nameko.messaging.payload_truncated": str(truncated),
+                }
+            )
         attributes.update(amqp_publisher_attributes(publisher.publisher, kwargs))
 
         with tracer.start_as_current_span(
@@ -58,9 +62,11 @@ def get_dependency(tracer, wrapped, instance, args, kwargs):
     return FunctionWrapper(publish, wrapped_publish)
 
 
-def instrument(tracer):
+def instrument(tracer, config):
     wrap_function_wrapper(
-        "nameko.messaging", "Publisher.get_dependency", partial(get_dependency, tracer),
+        "nameko.messaging",
+        "Publisher.get_dependency",
+        partial(get_dependency, tracer, config),
     )
 
 
