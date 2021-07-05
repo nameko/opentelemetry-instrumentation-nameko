@@ -57,8 +57,7 @@ class EntrypointAdapter:
 
     def start_span(self, span):
         if span.is_recording():
-            span.set_attributes(self.get_common_attributes())
-            span.set_attributes(self.get_call_args_attributes())
+            span.set_attributes(self.get_attributes())
 
     def end_span(self, span, result, exc_info):
         if span.is_recording():
@@ -75,10 +74,25 @@ class EntrypointAdapter:
             status = self.get_status(result, exc_info)
             span.set_status(status)
 
-    def get_common_attributes(self):
+    def get_attributes(self):
         """ Common attributes.
         """
         entrypoint = self.worker_ctx.entrypoint
+
+        if getattr(entrypoint, "sensitive_arguments", None):
+            call_args = get_redacted_args(
+                entrypoint, *self.worker_ctx.args, **self.worker_ctx.kwargs
+            )
+            redacted = True
+        else:
+            method = getattr(entrypoint.container.service_cls, entrypoint.method_name)
+            call_args = inspect.getcallargs(
+                method, None, *self.worker_ctx.args, **self.worker_ctx.kwargs
+            )
+            del call_args["self"]
+            redacted = False
+
+        call_args, truncated = utils.truncate(utils.serialise_to_string(call_args))
 
         return {
             "service_name": self.worker_ctx.service_name,
@@ -87,33 +101,8 @@ class EntrypointAdapter:
             "context_data": utils.serialise_to_string(
                 self.worker_ctx.data
             ),  # TODO scrub!
-            "active_workers": self.worker_ctx.container._worker_pool.running(),  # this is a metric!
-            "available_workers": self.worker_ctx.container._worker_pool.free(),  # this is a metric!
-        }
-
-    def get_call_args_attributes(self):
-        """ Attributes describing call arguments
-        """
-
-        worker_ctx = self.worker_ctx
-        entrypoint = worker_ctx.entrypoint
-
-        if getattr(entrypoint, "sensitive_arguments", None):
-            call_args = get_redacted_args(
-                entrypoint, *worker_ctx.args, **worker_ctx.kwargs
-            )
-            redacted = True
-        else:
-            method = getattr(entrypoint.container.service_cls, entrypoint.method_name)
-            call_args = inspect.getcallargs(
-                method, None, *worker_ctx.args, **worker_ctx.kwargs
-            )
-            del call_args["self"]
-            redacted = False
-
-        call_args, truncated = utils.truncate(json.dumps(call_args))
-
-        return {
+            "active_workers": self.worker_ctx.container._worker_pool.running(),
+            "available_workers": self.worker_ctx.container._worker_pool.free(),
             "call_args": call_args,
             "call_args_redacted": str(redacted),
             "call_args_truncated": str(truncated),

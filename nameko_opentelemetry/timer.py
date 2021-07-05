@@ -2,8 +2,8 @@ from nameko_opentelemetry.entrypoints import EntrypointAdapter
 
 
 class TimerEntrypointAdapter(EntrypointAdapter):
-    def get_common_attributes(self):
-        attrs = super().get_common_attributes()
+    def get_attributes(self):
+        attrs = super().get_attributes()
 
         attrs.update(
             {

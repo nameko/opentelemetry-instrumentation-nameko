@@ -38,19 +38,35 @@ class HttpEntrypointAdapter(EntrypointAdapter):
 
         return call_args.get("request")
 
-    def get_call_args_attributes(self):
+    def get_attributes(self):
+
+        attributes = super().get_attributes()
+        del attributes["call_args"]
+        del attributes["call_args_redacted"]
+        del attributes["call_args_truncated"]
 
         request = self.request
         data = request.data or request.form
 
-        attributes = wsgi.collect_request_attributes(request.environ)
+        headers = []
+        for key, value in request.environ.items():
+            key = str(key)
+            if key.startswith("HTTP_") and key not in (
+                "HTTP_CONTENT_TYPE",
+                "HTTP_CONTENT_LENGTH",
+            ):
+                headers.append((key[5:].lower(), str(value)))
+            elif key in ("CONTENT_TYPE", "CONTENT_LENGTH"):
+                headers.append((key.lower(), str(value)))
+
+        attributes.update(wsgi.collect_request_attributes(request.environ))
         attributes.update(
             {
                 "request.data": utils.serialise_to_string(
                     data
                 ),  # do we want to send this?
                 "request.headers": utils.serialise_to_string(
-                    self.get_headers(request.environ)
+                    headers
                 ),  # again do we want to send this? + scrubbing?
             }
         )
@@ -83,19 +99,6 @@ class HttpEntrypointAdapter(EntrypointAdapter):
             SpanAttributes.HTTP_RESPONSE_CONTENT_LENGTH: result.content_length,
             SpanAttributes.HTTP_STATUS_CODE: result.status_code,
         }
-
-    def get_headers(self, environ):
-        """ Return only proper HTTP headers
-        """
-        for key, value in environ.items():
-            key = str(key)
-            if key.startswith("HTTP_") and key not in (
-                "HTTP_CONTENT_TYPE",
-                "HTTP_CONTENT_LENGTH",
-            ):
-                yield key[5:].lower(), str(value)
-            elif key in ("CONTENT_TYPE", "CONTENT_LENGTH"):
-                yield key.lower(), str(value)
 
     def get_status(self, result, exc_info):
         if exc_info:

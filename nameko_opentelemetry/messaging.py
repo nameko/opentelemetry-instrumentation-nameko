@@ -15,8 +15,8 @@ from nameko_opentelemetry.utils import serialise_to_string, truncate
 
 
 class ConsumerEntrypointAdapter(EntrypointAdapter):
-    def get_common_attributes(self):
-        attrs = super().get_common_attributes()
+    def get_attributes(self):
+        attrs = super().get_attributes()
 
         entrypoint = self.worker_ctx.entrypoint
 

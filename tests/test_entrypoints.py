@@ -219,7 +219,7 @@ class TestCallArgs:
         assert len(spans) == 1
 
         attributes = spans[0].attributes
-        assert attributes["call_args"] == json.dumps({"arg": "arg", "kwarg": "kwarg"})
+        assert attributes["call_args"] == "{'arg': 'arg', 'kwarg': 'kwarg'}"
 
     def test_call_args_truncation(self, container, memory_exporter):
 
@@ -242,8 +242,8 @@ class TestCallArgs:
         assert len(spans) == 1
 
         attributes = spans[0].attributes
-        assert attributes["call_args"] == json.dumps(
-            {"arg": "arg", "kwarg": {"foo": REDACTED, "bar": "BAR"}}
+        assert attributes["call_args"] == (
+            f"{{'arg': 'arg', 'kwarg': {{'foo': '{REDACTED}', 'bar': 'BAR'}}}}"
         )
         assert attributes["call_args_redacted"] == "True"
 

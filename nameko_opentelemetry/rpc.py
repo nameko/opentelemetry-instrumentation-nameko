@@ -28,15 +28,15 @@ active_spans = WeakKeyDictionary()
 
 
 class RpcEntrypointAdapter(EntrypointAdapter):
-    def get_common_attributes(self):
-        attrs = super().get_common_attributes()
+    def get_attributes(self):
+        attributes = super().get_attributes()
 
         consumer = self.worker_ctx.entrypoint.rpc_consumer.consumer
-        attrs.update(amqp_consumer_attributes(consumer))
-        return attrs
+        attributes.update(amqp_consumer_attributes(consumer))
+        return attributes
 
 
-def collect_attributes(target_service, target_method, publisher, kwargs):
+def collect_client_attributes(target_service, target_method, publisher, kwargs):
     attributes = {
         "nameko.rpc.target_service": target_service,
         "nameko.rpc.target_method": target_method,
@@ -89,7 +89,7 @@ def initiate_call(tracer, wrapped, instance, args, kwargs):
     client = instance
 
     publisher = publishers[client.publish]
-    attributes = collect_attributes(
+    attributes = collect_client_attributes(
         client.service_name,
         client.method_name,
         publisher,

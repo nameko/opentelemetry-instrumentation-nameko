@@ -21,8 +21,8 @@ from nameko_opentelemetry.utils import (
 
 
 class EventHandlerEntrypointAdapter(EntrypointAdapter):
-    def get_common_attributes(self):
-        attrs = super().get_common_attributes()
+    def get_attributes(self):
+        attrs = super().get_attributes()
 
         entrypoint = self.worker_ctx.entrypoint
 
@@ -39,7 +39,7 @@ class EventHandlerEntrypointAdapter(EntrypointAdapter):
         return attrs
 
 
-def collect_attributes(exchange_name, event_type, event_data, publisher, kwargs):
+def collect_client_attributes(exchange_name, event_type, event_data, publisher, kwargs):
     data, truncated = truncate(serialise_to_string(event_data))
 
     attributes = {
@@ -60,7 +60,7 @@ def get_dependency(tracer, wrapped, instance, args, kwargs):
     def wrapped_dispatch(wrapped, instance, args, kwargs):
         event_type, event_data = args
 
-        attributes = collect_attributes(
+        attributes = collect_client_attributes(
             dispatcher.exchange.name,
             event_type,
             event_data,
@@ -95,7 +95,7 @@ def event_dispatcher(tracer, wrapped, instance, args, kwargs):
 
         exchange = get_event_exchange(service_name)
 
-        attributes = collect_attributes(
+        attributes = collect_client_attributes(
             exchange.name, event_type, event_data, publisher, kwargs,
         )
 
