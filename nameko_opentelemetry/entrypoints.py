@@ -137,7 +137,7 @@ class EntrypointAdapter:
     def get_result_attributes(self, result):
         """ Attributes describing the entrypoint method result
         """
-        return {"result": utils.safe_for_serialisation(result)}
+        return {"result": utils.safe_for_serialisation(result or "")}
 
     def get_status(self, result, exc_info):
         """ Span status for this entrypoint method
