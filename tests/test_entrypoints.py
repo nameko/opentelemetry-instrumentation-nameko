@@ -196,6 +196,15 @@ class TestExceptions:
 
 
 class TestCallArgs:
+    @pytest.fixture(
+        params=[True, False], names=["send_request_payloads", "no_request_payloads"]
+    )
+    def config(self, config):
+        # override default truncation length
+        config["truncate_max_length"] = 300
+        # disable call args based on param
+        return config
+
     @pytest.fixture
     def container(self, container_factory):
         class Service:
@@ -230,7 +239,7 @@ class TestCallArgs:
         assert len(spans) == 1
 
         attributes = spans[0].attributes
-        assert len(attributes["call_args"]) == TRUNCATE_MAX_LENGTH
+        assert len(attributes["call_args"]) == 300
         assert attributes["call_args_truncated"] == "True"
 
     def test_call_args_redaction(self, container, memory_exporter):
