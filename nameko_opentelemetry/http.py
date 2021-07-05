@@ -41,9 +41,9 @@ class HttpEntrypointAdapter(EntrypointAdapter):
     def get_attributes(self):
 
         attributes = super().get_attributes()
-        del attributes["call_args"]
-        del attributes["call_args_redacted"]
-        del attributes["call_args_truncated"]
+        attributes.pop("call_args", None)
+        attributes.pop("call_args_redacted", None)
+        attributes.pop("call_args_truncated", None)
 
         request = self.request
         data = request.data or request.form

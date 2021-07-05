@@ -1,4 +1,3 @@
-import json
 import socket
 
 import pytest
@@ -7,10 +6,18 @@ from nameko.testing.services import dummy, entrypoint_hook
 from nameko.utils import REDACTED
 from opentelemetry.trace.status import StatusCode
 
-from nameko_opentelemetry.utils import TRUNCATE_MAX_LENGTH
-
 
 class TestSpanAttributes:
+    @pytest.fixture(params=[True, False], ids=["send_headers", "no_send_headers"])
+    def send_headers(self, request):
+        return request.param
+
+    @pytest.fixture
+    def config(self, config, send_headers):
+        # disable headers based on param
+        config["send_headers"] = send_headers
+        return config
+
     @pytest.fixture
     def container(self, container_factory):
         class Service:
@@ -25,7 +32,7 @@ class TestSpanAttributes:
 
         return container
 
-    def test_common(self, container, memory_exporter):
+    def test_common(self, container, memory_exporter, send_headers):
 
         with entrypoint_hook(container, "method") as hook:
             assert hook("arg", kwarg="kwarg") == "OK"
@@ -42,10 +49,26 @@ class TestSpanAttributes:
         assert attributes["method_name"] == "method"
         assert attributes["active_workers"] == 1
         assert attributes["available_workers"] == 9
-        assert "call_id_stack" in attributes["context_data"]
+
+        if send_headers:
+            assert "call_id_stack" in attributes["context_data"]
+        else:
+            assert "call_id_stack" not in attributes
 
 
 class TestResultAttributes:
+    @pytest.fixture(
+        params=[True, False], ids=["send_response_payloads", "no_response_payloads"]
+    )
+    def send_response_payloads(self, request):
+        return request.param
+
+    @pytest.fixture
+    def config(self, config, send_response_payloads):
+        # disable headers based on param
+        config["send_response_payloads"] = send_response_payloads
+        return config
+
     @pytest.fixture
     def unserializable_object(self):
         return object()
@@ -75,7 +98,7 @@ class TestResultAttributes:
 
         return container
 
-    def test_simple(self, container, memory_exporter):
+    def test_simple(self, container, memory_exporter, send_response_payloads):
 
         with entrypoint_hook(container, "method") as hook:
             assert hook("arg", kwarg="kwarg") == "OK"
@@ -85,9 +108,13 @@ class TestResultAttributes:
 
         attributes = spans[0].attributes
         assert attributes["method_name"] == "method"
-        assert attributes["result"] == "OK"
 
-    def test_exception(self, container, memory_exporter):
+        if send_response_payloads:
+            assert attributes["result"] == "OK"
+        else:
+            assert "result" not in attributes
+
+    def test_exception(self, container, memory_exporter, send_response_payloads):
 
         with entrypoint_hook(container, "raises") as hook:
             with pytest.raises(Exception):
@@ -98,10 +125,14 @@ class TestResultAttributes:
 
         attributes = spans[0].attributes
         assert attributes["method_name"] == "raises"
-        assert attributes.get("result") is None
+
+        if send_response_payloads:
+            assert attributes.get("result") is None
+        else:
+            assert "result" not in attributes
 
     def test_unserializable_result(
-        self, container, memory_exporter, unserializable_object
+        self, container, memory_exporter, unserializable_object, send_response_payloads
     ):
 
         with entrypoint_hook(container, "unserializable") as hook:
@@ -111,8 +142,12 @@ class TestResultAttributes:
         assert len(spans) == 1
 
         attributes = spans[0].attributes
-        assert attributes["method_name"] == "unserializable"
-        assert attributes["result"] == str(unserializable_object)
+
+        if send_response_payloads:
+            assert attributes["method_name"] == "unserializable"
+            assert attributes["result"] == str(unserializable_object)
+        else:
+            assert "result" not in attributes
 
 
 class TestExceptions:
@@ -197,12 +232,17 @@ class TestExceptions:
 
 class TestCallArgs:
     @pytest.fixture(
-        params=[True, False], names=["send_request_payloads", "no_request_payloads"]
+        params=[True, False], ids=["send_request_payloads", "no_request_payloads"]
     )
-    def config(self, config):
+    def send_request_payloads(self, request):
+        return request.param
+
+    @pytest.fixture
+    def config(self, config, send_request_payloads):
         # override default truncation length
         config["truncate_max_length"] = 300
         # disable call args based on param
+        config["send_request_payloads"] = send_request_payloads
         return config
 
     @pytest.fixture
@@ -219,7 +259,7 @@ class TestCallArgs:
 
         return container
 
-    def test_call_args(self, container, memory_exporter):
+    def test_call_args(self, container, memory_exporter, send_request_payloads):
 
         with entrypoint_hook(container, "method") as hook:
             assert hook("arg", kwarg="kwarg") == "OK"
@@ -228,9 +268,15 @@ class TestCallArgs:
         assert len(spans) == 1
 
         attributes = spans[0].attributes
-        assert attributes["call_args"] == "{'arg': 'arg', 'kwarg': 'kwarg'}"
 
-    def test_call_args_truncation(self, container, memory_exporter):
+        if send_request_payloads:
+            assert attributes["call_args"] == "{'arg': 'arg', 'kwarg': 'kwarg'}"
+        else:
+            assert "call_args" not in attributes
+
+    def test_call_args_truncation(
+        self, container, memory_exporter, send_request_payloads
+    ):
 
         with entrypoint_hook(container, "method") as hook:
             assert hook("arg" * 1000) == "OK"
@@ -239,10 +285,16 @@ class TestCallArgs:
         assert len(spans) == 1
 
         attributes = spans[0].attributes
-        assert len(attributes["call_args"]) == 300
-        assert attributes["call_args_truncated"] == "True"
 
-    def test_call_args_redaction(self, container, memory_exporter):
+        if send_request_payloads:
+            assert len(attributes["call_args"]) == 300
+            assert attributes["call_args_truncated"] == "True"
+        else:
+            assert "call_args_truncated" not in attributes
+
+    def test_call_args_redaction(
+        self, container, memory_exporter, send_request_payloads
+    ):
 
         with entrypoint_hook(container, "method") as hook:
             assert hook("arg", kwarg={"foo": "FOO", "bar": "BAR"}) == "OK"
@@ -251,10 +303,14 @@ class TestCallArgs:
         assert len(spans) == 1
 
         attributes = spans[0].attributes
-        assert attributes["call_args"] == (
-            f"{{'arg': 'arg', 'kwarg': {{'foo': '{REDACTED}', 'bar': 'BAR'}}}}"
-        )
-        assert attributes["call_args_redacted"] == "True"
+
+        if send_request_payloads:
+            assert attributes["call_args"] == (
+                f"{{'arg': 'arg', 'kwarg': {{'foo': '{REDACTED}', 'bar': 'BAR'}}}}"
+            )
+            assert attributes["call_args_redacted"] == "True"
+        else:
+            assert "call_args_redacted" not in attributes
 
 
 class TestStatus:

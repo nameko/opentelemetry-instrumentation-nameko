@@ -110,6 +110,18 @@ class TestServerAttributes:
 
 
 class TestClientAttributes:
+    @pytest.fixture(
+        params=[True, False], ids=["send_request_payloads", "no_send_request_payloads"]
+    )
+    def send_request_payloads(self, request):
+        return request.param
+
+    @pytest.fixture
+    def config(self, config, send_request_payloads):
+        # disable request payloads based on param
+        config["send_request_payloads"] = send_request_payloads
+        return config
+
     @pytest.fixture
     def container(self, container_factory, rabbit_config):
         class Service:
@@ -136,7 +148,9 @@ class TestClientAttributes:
             dp = get_extension(container, EventDispatcher)
             return dp.get_dependency(Mock(context_data={}))
 
-    def test_event_attributes(self, container, dispatch, memory_exporter):
+    def test_event_attributes(
+        self, container, dispatch, memory_exporter, send_request_payloads
+    ):
 
         payload = "payload"
         with entrypoint_waiter(container, "handle") as result:
@@ -151,8 +165,13 @@ class TestClientAttributes:
         attributes = client_span.attributes
         assert attributes["nameko.events.exchange"] == "service.events"
         assert attributes["nameko.events.event_type"] == "example"
-        assert attributes["nameko.events.event_data"] == "payload"
-        assert attributes["nameko.events.event_data_truncated"] == "False"
+
+        if send_request_payloads:
+            assert attributes["nameko.events.event_data"] == "payload"
+            assert attributes["nameko.events.event_data_truncated"] == "False"
+        else:
+            assert "nameko.events.event_data" not in attributes
+            assert "nameko.events.event_data_truncated" not in attributes
 
     def test_publisher_attributes(self, container, dispatch, memory_exporter):
 
