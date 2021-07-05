@@ -11,7 +11,11 @@ from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util._time import _time_ns
 from wrapt import wrap_function_wrapper
 
-from nameko_opentelemetry.amqp import amqp_publisher_attributes
+from nameko_opentelemetry.amqp import (
+    amqp_consumer_attributes,
+    amqp_publisher_attributes,
+)
+from nameko_opentelemetry.entrypoints import EntrypointAdapter
 from nameko_opentelemetry.utils import (
     call_function_get_frame,
     serialise_to_string,
@@ -23,16 +27,13 @@ publishers = {}
 active_spans = WeakKeyDictionary()
 
 
-# server:
+class RpcEntrypointAdapter(EntrypointAdapter):
+    def get_common_attributes(self):
+        attrs = super().get_common_attributes()
 
-# ssl
-# amqp uri
-# consumer prefetch count? consumer pending, if known?
-# consumer heartbeat?
-# consumer accept?
-# routing key? (service name, method name - already coverered)
-# context data / headers (context data applies to all entrypoints)
-# currently active workers? (all entrypoints)
+        consumer = self.worker_ctx.entrypoint.rpc_consumer.consumer
+        attrs.update(amqp_consumer_attributes(consumer))
+        return attrs
 
 
 def collect_attributes(target_service, target_method, publisher, kwargs):

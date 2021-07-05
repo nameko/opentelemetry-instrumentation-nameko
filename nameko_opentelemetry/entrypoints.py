@@ -19,9 +19,17 @@ from nameko_opentelemetry import utils
 
 
 DEFAULT_ADAPTERS = {
+    "nameko.rpc.Rpc": ("nameko_opentelemetry.rpc.RpcEntrypointAdapter"),
     "nameko.web.handlers.HttpRequestHandler": (
         "nameko_opentelemetry.http.HttpEntrypointAdapter"
     ),
+    "nameko.events.EventHandler": (
+        "nameko_opentelemetry.events.EventHandlerEntrypointAdapter"
+    ),
+    "nameko.messaging.Consumer": (
+        "nameko_opentelemetry.messaging.ConsumerEntrypointAdapter"
+    ),
+    "nameko.timer.Timer": ("nameko_opentelemetry.timer.TimerEntrypointAdapter"),
 }
 
 active_spans = WeakKeyDictionary()
@@ -49,16 +57,7 @@ class EntrypointAdapter:
 
     def start_span(self, span):
         if span.is_recording():
-
-            entrypoint = self.worker_ctx.entrypoint
-
-            span.set_attributes(
-                {
-                    "service_name": self.worker_ctx.service_name,
-                    "entrypoint_type": type(entrypoint).__name__,
-                    "method_name": entrypoint.method_name,
-                }
-            )
+            span.set_attributes(self.get_common_attributes())
             span.set_attributes(self.get_call_args_attributes())
 
     def end_span(self, span, result, exc_info):
@@ -75,6 +74,22 @@ class EntrypointAdapter:
 
             status = self.get_status(result, exc_info)
             span.set_status(status)
+
+    def get_common_attributes(self):
+        """ Common attributes.
+        """
+        entrypoint = self.worker_ctx.entrypoint
+
+        return {
+            "service_name": self.worker_ctx.service_name,
+            "entrypoint_type": type(entrypoint).__name__,
+            "method_name": entrypoint.method_name,
+            "context_data": utils.serialise_to_string(
+                self.worker_ctx.data
+            ),  # TODO scrub!
+            "active_workers": self.worker_ctx.container._worker_pool.running(),  # this is a metric!
+            "available_workers": self.worker_ctx.container._worker_pool.free(),  # this is a metric!
+        }
 
     def get_call_args_attributes(self):
         """ Attributes describing call arguments

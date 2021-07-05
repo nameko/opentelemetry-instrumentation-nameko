@@ -8,7 +8,11 @@ from opentelemetry.instrumentation.utils import unwrap
 from opentelemetry.propagate import inject
 from wrapt import FunctionWrapper, wrap_function_wrapper
 
-from nameko_opentelemetry.amqp import amqp_publisher_attributes
+from nameko_opentelemetry.amqp import (
+    amqp_consumer_attributes,
+    amqp_publisher_attributes,
+)
+from nameko_opentelemetry.entrypoints import EntrypointAdapter
 from nameko_opentelemetry.utils import (
     call_function_get_frame,
     serialise_to_string,
@@ -16,14 +20,23 @@ from nameko_opentelemetry.utils import (
 )
 
 
-# server:
+class EventHandlerEntrypointAdapter(EntrypointAdapter):
+    def get_common_attributes(self):
+        attrs = super().get_common_attributes()
 
-# handler type
-# reliable delivery
-# requeue on error
-# consumer options
-# sensitive arguments? (all entrypoints)
-# expected exceptions? (all entrypoints)
+        entrypoint = self.worker_ctx.entrypoint
+
+        attrs.update(
+            {
+                "nameko.events.handler_type": entrypoint.handler_type,
+                "nameko.events.reliable_delivery": str(entrypoint.reliable_delivery),
+                "nameko.events.requeue_on_error": str(entrypoint.requeue_on_error),
+            }
+        )
+
+        consumer = self.worker_ctx.entrypoint.consumer
+        attrs.update(amqp_consumer_attributes(consumer))
+        return attrs
 
 
 def collect_attributes(exchange_name, event_type, event_data, publisher, kwargs):
@@ -33,7 +46,7 @@ def collect_attributes(exchange_name, event_type, event_data, publisher, kwargs)
         "nameko.events.exchange": exchange_name,
         "nameko.events.event_type": event_type,
         "nameko.events.event_data": data,
-        "nameko.events.event_data_truncated": truncated,
+        "nameko.events.event_data_truncated": str(truncated),
     }
     attributes.update(amqp_publisher_attributes(publisher, kwargs))
     return attributes

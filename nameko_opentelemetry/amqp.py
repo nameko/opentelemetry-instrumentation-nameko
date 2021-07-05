@@ -56,3 +56,16 @@ def amqp_publisher_attributes(publisher, kwargs):
         f"{PREFIX}.routing_key": get_routing_key(publisher, kwargs),
         f"{PREFIX}.headers": get_headers(publisher, kwargs),
     }
+
+
+def amqp_consumer_attributes(consumer):
+
+    return {
+        f"{PREFIX}.amqp_uri": serialise_to_string(consumer.amqp_uri),
+        f"{PREFIX}.ssl": serialise_to_string(consumer.ssl),
+        f"{PREFIX}.prefetch_count": serialise_to_string(consumer.prefetch_count),
+        f"{PREFIX}.heartbeat": serialise_to_string(consumer.heartbeat),
+        f"{PREFIX}.accept": serialise_to_string(consumer.accept),
+        f"{PREFIX}.queues": serialise_to_string(consumer.queues),
+        f"{PREFIX}.consumer_options": serialise_to_string(consumer.consumer_options),
+    }

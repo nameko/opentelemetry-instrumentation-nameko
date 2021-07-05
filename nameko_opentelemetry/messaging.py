@@ -6,8 +6,27 @@ from opentelemetry.instrumentation.utils import unwrap
 from opentelemetry.propagate import inject
 from wrapt import FunctionWrapper, wrap_function_wrapper
 
-from nameko_opentelemetry.amqp import amqp_publisher_attributes
+from nameko_opentelemetry.amqp import (
+    amqp_consumer_attributes,
+    amqp_publisher_attributes,
+)
+from nameko_opentelemetry.entrypoints import EntrypointAdapter
 from nameko_opentelemetry.utils import serialise_to_string, truncate
+
+
+class ConsumerEntrypointAdapter(EntrypointAdapter):
+    def get_common_attributes(self):
+        attrs = super().get_common_attributes()
+
+        entrypoint = self.worker_ctx.entrypoint
+
+        attrs.update(
+            {"nameko.messaging.requeue_on_error": str(entrypoint.requeue_on_error)}
+        )
+
+        consumer = self.worker_ctx.entrypoint.consumer
+        attrs.update(amqp_consumer_attributes(consumer))
+        return attrs
 
 
 def get_dependency(tracer, wrapped, instance, args, kwargs):
@@ -25,7 +44,7 @@ def get_dependency(tracer, wrapped, instance, args, kwargs):
         attributes = {
             "nameko.messaging.exchange": target,
             "nameko.messaging.payload": data,
-            "nameko.messaging.payload_truncated": truncated,
+            "nameko.messaging.payload_truncated": str(truncated),
         }
         attributes.update(amqp_publisher_attributes(publisher.publisher, kwargs))
 

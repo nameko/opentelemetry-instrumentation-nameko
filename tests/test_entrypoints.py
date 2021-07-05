@@ -40,6 +40,9 @@ class TestSpanAttributes:
         assert attributes["service_name"] == "service"
         assert attributes["entrypoint_type"] == "Rpc"
         assert attributes["method_name"] == "method"
+        assert attributes["active_workers"] == 1
+        assert attributes["available_workers"] == 9
+        assert "call_id_stack" in attributes["context_data"]
 
 
 class TestResultAttributes:

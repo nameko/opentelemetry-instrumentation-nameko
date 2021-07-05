@@ -6,6 +6,11 @@ from nameko_opentelemetry.package import _instruments
 from nameko_opentelemetry.version import __version__
 
 
+def active_tracer():
+    provider = trace.get_tracer_provider()
+    return trace.get_tracer(__name__, __version__, provider)
+
+
 class NamekoInstrumentor(BaseInstrumentor):
     def instrumentation_dependencies(self):
         return _instruments
@@ -14,8 +19,7 @@ class NamekoInstrumentor(BaseInstrumentor):
         """
         ...
         """
-        tracer_provider = kwargs.get("tracer_provider")
-        tracer = trace.get_tracer("nameko", __version__, tracer_provider)
+        tracer = active_tracer()
 
         # client_request_hook = kwargs.get("client_request_hook", None)
         # client_response_hook = kwargs.get("client_response_hook", None)

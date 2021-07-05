@@ -1,6 +1,7 @@
 import collections.abc
 import json
 import logging
+import sys
 from importlib import import_module
 
 import six
@@ -72,3 +73,29 @@ def truncate(value, max_len=TRUNCATE_MAX_LENGTH):
     if len(value) > max_len:
         return value[:max_len], True
     return value, False
+
+
+def call_function_get_frame(func, *args, **kwargs):
+    """
+    Calls the function `func` with the specified arguments and keyword
+    arguments and snatches its local frame before it actually executes.
+
+    Borrowed from https://stackoverflow.com/questions/4214936
+    """
+
+    frame = None
+    trace = sys.gettrace()
+
+    def snatch_locals(_frame, name, arg):
+        nonlocal frame
+        if frame is None and name == "call":
+            frame = _frame
+            sys.settrace(trace)
+        return trace
+
+    sys.settrace(snatch_locals)
+    try:
+        result = func(*args, **kwargs)
+    finally:
+        sys.settrace(trace)
+    return frame, result
