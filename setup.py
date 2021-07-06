@@ -16,7 +16,14 @@ setup(
         "opentelemetry-instrumentation",
         "opentelemetry-instrumentation-wsgi",
     ],
-    extras_require={"dev": ["coverage", "pytest", "opentelemetry-sdk"]},
+    extras_require={
+        "dev": [
+            "coverage",
+            "pytest",
+            "opentelemetry-sdk",
+            "opentelemetry-instrumentation-requests",
+        ]
+    },
     dependency_links=[],
     zip_safe=True,
     license="Apache License, Version 2.0",
