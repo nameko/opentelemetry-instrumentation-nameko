@@ -14,6 +14,7 @@ setup(
         "nameko==3.0.0rc9",
         "opentelemetry-api",
         "opentelemetry-instrumentation",
+        "opentelemetry-instrumentation-wsgi",
     ],
     extras_require={"dev": ["coverage", "pytest", "opentelemetry-sdk"]},
     dependency_links=[],
