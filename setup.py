@@ -10,7 +10,11 @@ setup(
     author="Nameko Authors",
     url="https://github.com/nameko/nameko-opentelemetry",
     packages=find_packages(exclude=["test", "test.*"]),
-    install_requires=["nameko==3.0.0rc9", "opentelemetry-api"],
+    install_requires=[
+        "nameko==3.0.0rc9",
+        "opentelemetry-api",
+        "opentelemetry-instrumentation",
+    ],
     extras_require={"dev": ["coverage", "pytest", "opentelemetry-sdk"]},
     dependency_links=[],
     zip_safe=True,
