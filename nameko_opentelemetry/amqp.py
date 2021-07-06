@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+""" Utility functions that extract relevant attributes from AMQP
+publishers and consumers.
+"""
 from nameko_opentelemetry.utils import serialise_to_string
 
 
@@ -28,7 +31,7 @@ def get_headers(publisher, kwargs):
 
 def amqp_publisher_attributes(publisher, kwargs):
     """
-    Extract attributes relevant to AMQP message publishing.
+    Extract attributes relevant to AMQP message publishers.
 
     The publisher instance and the kwargs passed to it as publish-time are
     combined before the attribute value is extracted.
@@ -60,7 +63,9 @@ def amqp_publisher_attributes(publisher, kwargs):
 
 
 def amqp_consumer_attributes(consumer):
-
+    """
+    Extract attributes relevant to AMQP message consumers.
+    """
     return {
         f"{PREFIX}.amqp_uri": serialise_to_string(consumer.amqp_uri),
         f"{PREFIX}.ssl": serialise_to_string(consumer.ssl),

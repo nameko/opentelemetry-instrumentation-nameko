@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+""" This modules applies patches to capture spans when messages are published by
+the Publisher dependency provider.
+
+The entrypoint adapter for consumer entrypoint is defined here too.
+"""
 from functools import partial
 
 import nameko.messaging
@@ -16,9 +21,14 @@ from nameko_opentelemetry.utils import serialise_to_string, truncate
 
 
 class ConsumerEntrypointAdapter(EntrypointAdapter):
+    """ Adapter customisation for Consumer entrypoints. 
+    """
+
     span_kind = trace.SpanKind.CONSUMER
 
     def get_attributes(self):
+        """ Include configuration of the entrypoint, and AMQP consumer attributes.
+        """
         attrs = super().get_attributes()
 
         entrypoint = self.worker_ctx.entrypoint
@@ -33,6 +43,11 @@ class ConsumerEntrypointAdapter(EntrypointAdapter):
 
 
 def get_dependency(tracer, config, wrapped, instance, args, kwargs):
+    """ Wrap nameko.events.Consumer.get_dependency.
+
+    Creates a PRODUCER span around the publish of the message, including all the
+    AMQP publisher attributes.
+    """
 
     (worker_ctx,) = args
     publisher = instance

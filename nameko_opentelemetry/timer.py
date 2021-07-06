@@ -3,6 +3,9 @@ from nameko_opentelemetry.entrypoints import EntrypointAdapter
 
 
 class TimerEntrypointAdapter(EntrypointAdapter):
+    """ Adapter customisation for Timer entrypoints. 
+    """
+
     def get_attributes(self):
         attrs = super().get_attributes()
 

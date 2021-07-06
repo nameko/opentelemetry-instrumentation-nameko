@@ -1,4 +1,12 @@
 # -*- coding: utf-8 -*-
+""" This modules applies patches to capture spans when RPC messages are sent by the
+clients (both the dependency provider and the standalone client).
+
+There are also patches that handle cases where RPC messages are received, but no
+entrypoint fires, and therefore the normal entrypoint instrumentation won't apply.
+
+The entrypoint adapter for RPC entrypoints is defined here too.
+"""
 from functools import partial
 from weakref import WeakKeyDictionary
 
@@ -25,7 +33,12 @@ active_spans = WeakKeyDictionary()
 
 
 class RpcEntrypointAdapter(EntrypointAdapter):
+    """ Adapter customisation for RPC entrypoints. 
+    """
+
     def get_attributes(self):
+        """ Include AMQP consumer attributes
+        """
         attributes = super().get_attributes()
 
         consumer = self.worker_ctx.entrypoint.rpc_consumer.consumer

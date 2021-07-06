@@ -204,7 +204,7 @@ def worker_setup(tracer, config, wrapped, instance, args, kwargs):
 
     Creates a new span for each entrypoint that fires. The name of the
     span and its attributes are determined by the entrypoint "adapter"
-    that is configured for that entrypoint, or the default implementation. 
+    that is configured for that entrypoint, or the default implementation.
     """
     (worker_ctx,) = args
 

@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+""" This modules applies patches to capture spans when events are dispatched, by both
+the dependency provider and the standalone client.
+
+The entrypoint adapter for event handler entrypoint is defined here too.
+"""
 from functools import partial
 
 import nameko.events
@@ -22,9 +27,14 @@ from nameko_opentelemetry.utils import (
 
 
 class EventHandlerEntrypointAdapter(EntrypointAdapter):
+    """ Adapter customisation for EventHandler entrypoints. 
+    """
+
     span_kind = trace.SpanKind.CONSUMER
 
     def get_attributes(self):
+        """ Include configuration of the entrypoint, and AMQP consumer attributes.
+        """
         attrs = super().get_attributes()
 
         entrypoint = self.worker_ctx.entrypoint
@@ -64,7 +74,11 @@ def collect_client_attributes(
 
 
 def get_dependency(tracer, config, wrapped, instance, args, kwargs):
+    """ Wrap nameko.events.EventDispatcher.get_dependency.
 
+    Creates a PRODUCER span around the dispatch of the message, including all the
+    AMQP publisher attributes.
+    """
     dispatcher = instance
     (worker_ctx,) = args
 
@@ -95,7 +109,11 @@ def get_dependency(tracer, config, wrapped, instance, args, kwargs):
 def event_dispatcher(
     tracer, config, wrapped, instance, args, kwargs
 ):  # pragma: no cover -- call_function_get_frame messes up coverage collection
+    """ Wrap nameko.standalone.events.event_dispatcher.
 
+    Creates a PRODUCER span around the dispatch of the message, including all the
+    AMQP publisher attributes.
+    """
     headers = kwargs.get("headers", {})
     kwargs["headers"] = headers
     frame, dispatch = call_function_get_frame(wrapped, *args, **kwargs)
