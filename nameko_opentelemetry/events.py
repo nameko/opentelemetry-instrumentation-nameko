@@ -90,7 +90,9 @@ def get_dependency(tracer, config, wrapped, instance, args, kwargs):
     return FunctionWrapper(dispatch, wrapped_dispatch)
 
 
-def event_dispatcher(tracer, config, wrapped, instance, args, kwargs):
+def event_dispatcher(
+    tracer, config, wrapped, instance, args, kwargs
+):  # pragma: no cover -- call_function_get_frame messes up coverage collection
 
     headers = kwargs.get("headers", {})
     kwargs["headers"] = headers

@@ -32,11 +32,11 @@ class TestCaptureIncomingContext:
     def dispatch(self, rabbit_config, request, container):
         if request.param == "standalone":
             dispatch = nameko.standalone.events.event_dispatcher()
-            return lambda event_type, payload: dispatch("service", event_type, payload)
+            yield lambda event_type, payload: dispatch("service", event_type, payload)
 
         if request.param == "dependency_provider":
             dp = get_extension(container, EventDispatcher)
-            return dp.get_dependency(Mock(context_data={}))
+            yield dp.get_dependency(Mock(context_data={}))
 
     def test_incoming_context(self, container, dispatch, memory_exporter):
 
@@ -73,7 +73,7 @@ class TestServerAttributes:
     @pytest.fixture
     def dispatch(self, rabbit_config):
         dispatch = nameko.standalone.events.event_dispatcher()
-        return lambda event_type, payload: dispatch("service", event_type, payload)
+        yield lambda event_type, payload: dispatch("service", event_type, payload)
 
     def test_event_attributes(self, container, dispatch, memory_exporter):
 
@@ -143,11 +143,11 @@ class TestClientAttributes:
     def dispatch(self, rabbit_config, request, container):
         if request.param == "standalone":
             dispatch = nameko.standalone.events.event_dispatcher(expiration=10)
-            return lambda event_type, payload: dispatch("service", event_type, payload)
+            yield lambda event_type, payload: dispatch("service", event_type, payload)
 
         if request.param == "dependency_provider":
             dp = get_extension(container, EventDispatcher)
-            return dp.get_dependency(Mock(context_data={}))
+            yield dp.get_dependency(Mock(context_data={}))
 
     def test_event_attributes(
         self, container, dispatch, memory_exporter, send_request_payloads
@@ -213,7 +213,7 @@ class TestAdditionalSpans:
     @pytest.fixture
     def dispatch(self, rabbit_config):
         dispatch = nameko.standalone.events.event_dispatcher()
-        return lambda event_type, payload: dispatch("service", event_type, payload)
+        yield lambda event_type, payload: dispatch("service", event_type, payload)
 
     def test_internal_span(self, container, dispatch, memory_exporter):
 

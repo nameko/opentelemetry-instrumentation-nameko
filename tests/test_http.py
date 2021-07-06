@@ -101,7 +101,7 @@ class TestNoEntrypointFired:
 
             @http("GET", "/resource")
             def get_resource(self, request):
-                return "OK"
+                return "OK"  # pragma: no cover
 
         container = container_factory(Service)
         container.start()

@@ -78,7 +78,9 @@ def truncate(value, max_len=None):
     return value, False
 
 
-def call_function_get_frame(func, *args, **kwargs):
+def call_function_get_frame(
+    func, *args, **kwargs
+):  # pragma: no cover -- cannot be captured by coverage
     """
     Calls the function `func` with the specified arguments and keyword
     arguments and snatches its local frame before it actually executes.

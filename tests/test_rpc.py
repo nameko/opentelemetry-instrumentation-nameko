@@ -68,7 +68,7 @@ class TestNoEntrypointFired:
 
             @rpc
             def method(self, arg, kwarg=None):
-                return "OK"
+                return "OK"  # pragma: no cover
 
         container = container_factory(Service)
         container.start()

@@ -59,7 +59,9 @@ def get_dependency(tracer, config, wrapped, instance, args, kwargs):
     return client
 
 
-def cluster_rpc_client_init(tracer, config, wrapped, instance, args, kwargs):
+def cluster_rpc_client_init(
+    tracer, config, wrapped, instance, args, kwargs
+):  # pragma: no cover -- call_function_get_frame messes up coverage collection
     """ Wrap nameko.standalone.rpc.ClusterRpcClient.__init__ so we can save a
     reference to the underlying nameko.amqp.publish.Publisher, which we use in
     `initiate_call` to extract the AMQP attributes.
