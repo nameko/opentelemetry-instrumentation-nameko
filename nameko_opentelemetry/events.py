@@ -27,7 +27,7 @@ from nameko_opentelemetry.utils import (
 
 
 class EventHandlerEntrypointAdapter(EntrypointAdapter):
-    """ Adapter customisation for EventHandler entrypoints. 
+    """ Adapter customisation for EventHandler entrypoints.
     """
 
     span_kind = trace.SpanKind.CONSUMER

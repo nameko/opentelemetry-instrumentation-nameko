@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Demo service that exercises much of the instrumentation in this package.
 
@@ -5,7 +6,9 @@ Supply a honeycomb API key to send the spans there for visual exploration.
 
 Usage:
 
-HONEYCOMB_API_KEY=secret nameko run demo --define AMQP_URI=pyamqp://guest:guest@localhost/ --define WEB_SERVER_ADDRESS=0.0.0.0:8000
+HONEYCOMB_API_KEY=secret nameko run demo \
+    --define AMQP_URI=pyamqp://guest:guest@localhost/ \
+    --define WEB_SERVER_ADDRESS=0.0.0.0:8000
 
 """
 import logging
@@ -24,7 +27,6 @@ from nameko.timer import timer
 from nameko.web.handlers import http
 from opentelemetry import trace
 from opentelemetry.ext.honeycomb import HoneycombSpanExporter
-# from opentelemetry.propagate import extract
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor

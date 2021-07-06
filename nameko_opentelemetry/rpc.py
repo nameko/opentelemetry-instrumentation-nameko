@@ -33,7 +33,7 @@ active_spans = WeakKeyDictionary()
 
 
 class RpcEntrypointAdapter(EntrypointAdapter):
-    """ Adapter customisation for RPC entrypoints. 
+    """ Adapter customisation for RPC entrypoints.
     """
 
     def get_attributes(self):

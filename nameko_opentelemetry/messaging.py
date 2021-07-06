@@ -21,7 +21,7 @@ from nameko_opentelemetry.utils import serialise_to_string, truncate
 
 
 class ConsumerEntrypointAdapter(EntrypointAdapter):
-    """ Adapter customisation for Consumer entrypoints. 
+    """ Adapter customisation for Consumer entrypoints.
     """
 
     span_kind = trace.SpanKind.CONSUMER
