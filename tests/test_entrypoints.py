@@ -9,6 +9,8 @@ from nameko.utils import REDACTED
 from opentelemetry import trace
 from opentelemetry.trace.status import StatusCode
 
+from nameko_opentelemetry.entrypoints import EntrypointAdapter
+
 
 class TestSpanAttributes:
     @pytest.fixture(params=[True, False], ids=["send_headers", "no_send_headers"])
@@ -91,6 +93,44 @@ class TestNoTracer:
 
         spans = memory_exporter.get_finished_spans()
         assert len(spans) == 0
+
+
+class CustomAdapter(EntrypointAdapter):
+    def get_span_name(self):
+        return "custom_span_name"
+
+
+class TestCustomAdapter:
+    @pytest.fixture
+    def container(self, container_factory):
+        class Service:
+            name = "service"
+
+            @rpc
+            def method(self, arg, kwarg=None):
+                return "OK"
+
+        container = container_factory(Service)
+        container.start()
+
+        return container
+
+    @pytest.fixture
+    def config(self, config):
+        config["entrypoint_adapters"] = {
+            "nameko.rpc.Rpc": "test_entrypoints.CustomAdapter"
+        }
+        return config
+
+    def test_custom_adapter(self, container, memory_exporter):
+
+        with entrypoint_hook(container, "method") as hook:
+            assert hook("arg", kwarg="kwarg") == "OK"
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 1
+
+        assert spans[0].name == "custom_span_name"
 
 
 class TestResultAttributes:

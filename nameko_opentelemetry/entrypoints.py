@@ -1,4 +1,23 @@
 # -*- coding: utf-8 -*-
+"""
+This module patches the Nameko ServiceContainer so that every entrypoint that fires
+generates a span with helpful defaults.
+
+The kind, name, attributes and status of the span are determined by the
+EntrypointAdapter class. More specialised versions can be provided by passing an
+appropriate dictionary as `entrypoint_adapters` when invoking
+`NamekoInstrumentor.instrument()`.
+
+For example:
+
+    entrypoint_to_adapter_map = {
+        "my.custom.EntrypointType": "my.custom.EntrypointAdapter"
+    }
+
+    instrumentor = NamekoInstrumentor()
+    instrumentor.instrument(entrypoint_adapters=entrypoint_to_adapter_map)
+
+"""
 import inspect
 import socket
 import warnings
@@ -38,6 +57,10 @@ adapter_types = defaultdict(lambda: EntrypointAdapter)
 
 
 class EntrypointAdapter:
+    """ Default entrypoint adapter. This implementation is used unless there's
+    a more specific adapter set for the firing entrypoint's type.
+    """
+
     span_kind = trace.SpanKind.SERVER
 
     def __init__(self, worker_ctx, config):
@@ -79,7 +102,7 @@ class EntrypointAdapter:
             span.set_status(status)
 
     def get_attributes(self):
-        """ Common attributes.
+        """ Common attributes for most entrypoints.
         """
         entrypoint = self.worker_ctx.entrypoint
 
@@ -148,7 +171,7 @@ class EntrypointAdapter:
         }
 
     def get_result_attributes(self, result):
-        """ Attributes describing the entrypoint method result
+        """ Attributes describing the entrypoint method result.
         """
         if self.config.get("send_response_payloads"):
             attributes = {"result": utils.safe_for_serialisation(result or "")}
@@ -157,7 +180,7 @@ class EntrypointAdapter:
         return attributes
 
     def get_status(self, result, exc_info):
-        """ Span status for this entrypoint method
+        """ Span status for this worker.
         """
         if exc_info:
             exc_type, exc, _ = exc_info
@@ -177,6 +200,12 @@ def adapter_factory(worker_ctx, config):
 
 
 def worker_setup(tracer, config, wrapped, instance, args, kwargs):
+    """ Wrap nameko.containers.ServiceContainer._worker_setup.
+
+    Creates a new span for each entrypoint that fires. The name of the
+    span and its attributes are determined by the entrypoint "adapter"
+    that is configured for that entrypoint, or the default implementation. 
+    """
     (worker_ctx,) = args
 
     adapter = adapter_factory(worker_ctx, config)
@@ -189,6 +218,8 @@ def worker_setup(tracer, config, wrapped, instance, args, kwargs):
         attributes={"hostname": socket.gethostname()},
         start_time=_time_ns(),
     )
+    # don't automatically record the exception or set status, because
+    # we do that in the entrypoint adapter's `end_span` method
     activation = trace.use_span(
         span, record_exception=False, set_status_on_exception=False
     )
@@ -199,6 +230,11 @@ def worker_setup(tracer, config, wrapped, instance, args, kwargs):
 
 
 def worker_result(tracer, config, wrapped, instance, args, kwargs):
+    """ Wrap nameko.containers.ServiceContainer._worker_result.
+
+    Finds the existing span for this worker and closes it. Additional
+    attributes and status are set by the configured entrypoint adapter.
+    """
     (worker_ctx, result, exc_info) = args
 
     activated = active_spans.get(worker_ctx)
@@ -222,6 +258,7 @@ def worker_result(tracer, config, wrapped, instance, args, kwargs):
 
 def instrument(tracer, config):
 
+    # set up entrypoint adapters
     adapter_config = DEFAULT_ADAPTERS.copy()
     adapter_config.update(config.get("entrypoint_adapters", {}))
 
@@ -230,6 +267,7 @@ def instrument(tracer, config):
         adapter_class = utils.import_by_path(adapter_path)
         adapter_types[entrypoint_class] = adapter_class
 
+    # apply patches
     wrap_function_wrapper(
         "nameko.containers",
         "ServiceContainer._worker_setup",
