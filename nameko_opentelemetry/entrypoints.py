@@ -37,6 +37,8 @@ adapter_types = defaultdict(lambda: EntrypointAdapter)
 
 
 class EntrypointAdapter:
+    span_kind = trace.SpanKind.SERVER
+
     def __init__(self, worker_ctx, config):
         self.worker_ctx = worker_ctx
         self.config = config
@@ -182,7 +184,7 @@ def worker_setup(tracer, config, wrapped, instance, args, kwargs):
 
     span = tracer.start_span(
         adapter.get_span_name(),
-        kind=trace.SpanKind.SERVER,
+        kind=adapter.span_kind,
         attributes={"hostname": socket.gethostname()},
         start_time=_time_ns(),
     )

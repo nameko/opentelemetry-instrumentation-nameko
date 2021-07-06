@@ -22,6 +22,8 @@ from nameko_opentelemetry.utils import (
 
 
 class EventHandlerEntrypointAdapter(EntrypointAdapter):
+    span_kind = trace.SpanKind.CONSUMER
+
     def get_attributes(self):
         attrs = super().get_attributes()
 
@@ -81,7 +83,7 @@ def get_dependency(tracer, config, wrapped, instance, args, kwargs):
         with tracer.start_as_current_span(
             f"Dispatch event {worker_ctx.service_name}.{event_type}",
             attributes=attributes,
-            kind=trace.SpanKind.CLIENT,
+            kind=trace.SpanKind.PRODUCER,
         ):
             inject(worker_ctx.context_data)
             return wrapped(*args, **kwargs)
@@ -114,7 +116,7 @@ def event_dispatcher(
         with tracer.start_as_current_span(
             f"Dispatch event {service_name}.{event_type}",
             attributes=attributes,
-            kind=trace.SpanKind.CLIENT,
+            kind=trace.SpanKind.PRODUCER,
         ):
             inject(headers)
             return wrapped(*args, **kwargs)

@@ -48,8 +48,12 @@ class TestCaptureIncomingContext:
         spans = memory_exporter.get_finished_spans()
         assert len(spans) == 2
 
-        client_span = list(filter(lambda span: span.kind == SpanKind.CLIENT, spans))[0]
-        server_span = list(filter(lambda span: span.kind == SpanKind.SERVER, spans))[0]
+        client_span = list(filter(lambda span: span.kind == SpanKind.PRODUCER, spans))[
+            0
+        ]
+        server_span = list(filter(lambda span: span.kind == SpanKind.CONSUMER, spans))[
+            0
+        ]
 
         assert client_span.parent is None
         assert server_span.parent.span_id == client_span.get_span_context().span_id
@@ -85,7 +89,9 @@ class TestServerAttributes:
         spans = memory_exporter.get_finished_spans()
         assert len(spans) == 2
 
-        server_span = list(filter(lambda span: span.kind == SpanKind.SERVER, spans))[0]
+        server_span = list(filter(lambda span: span.kind == SpanKind.CONSUMER, spans))[
+            0
+        ]
 
         attributes = server_span.attributes
         assert attributes["nameko.events.handler_type"] == "service_pool"
@@ -102,7 +108,9 @@ class TestServerAttributes:
         spans = memory_exporter.get_finished_spans()
         assert len(spans) == 2
 
-        server_span = list(filter(lambda span: span.kind == SpanKind.SERVER, spans))[0]
+        server_span = list(filter(lambda span: span.kind == SpanKind.CONSUMER, spans))[
+            0
+        ]
 
         attributes = server_span.attributes
         assert attributes["nameko.amqp.prefetch_count"] == "10"
@@ -161,7 +169,9 @@ class TestClientAttributes:
         spans = memory_exporter.get_finished_spans()
         assert len(spans) == 2
 
-        client_span = list(filter(lambda span: span.kind == SpanKind.CLIENT, spans))[0]
+        client_span = list(filter(lambda span: span.kind == SpanKind.PRODUCER, spans))[
+            0
+        ]
 
         attributes = client_span.attributes
         assert attributes["nameko.events.exchange"] == "service.events"
@@ -184,7 +194,9 @@ class TestClientAttributes:
         spans = memory_exporter.get_finished_spans()
         assert len(spans) == 2
 
-        client_span = list(filter(lambda span: span.kind == SpanKind.CLIENT, spans))[0]
+        client_span = list(filter(lambda span: span.kind == SpanKind.PRODUCER, spans))[
+            0
+        ]
 
         attributes = client_span.attributes
         assert attributes["nameko.amqp.mandatory"] == "False"

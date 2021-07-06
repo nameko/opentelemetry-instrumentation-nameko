@@ -16,6 +16,8 @@ from nameko_opentelemetry.utils import serialise_to_string, truncate
 
 
 class ConsumerEntrypointAdapter(EntrypointAdapter):
+    span_kind = trace.SpanKind.CONSUMER
+
     def get_attributes(self):
         attrs = super().get_attributes()
 
@@ -56,7 +58,7 @@ def get_dependency(tracer, config, wrapped, instance, args, kwargs):
         attributes.update(amqp_publisher_attributes(publisher.publisher, kwargs))
 
         with tracer.start_as_current_span(
-            f"Publish to {target}", attributes=attributes, kind=trace.SpanKind.CLIENT,
+            f"Publish to {target}", attributes=attributes, kind=trace.SpanKind.PRODUCER,
         ):
             inject(worker_ctx.context_data)
             return wrapped(*args, **kwargs)
