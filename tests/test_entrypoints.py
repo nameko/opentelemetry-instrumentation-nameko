@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 import socket
+from unittest.mock import patch
 
 import pytest
 from nameko.rpc import rpc
 from nameko.testing.services import dummy, entrypoint_hook
 from nameko.utils import REDACTED
+from opentelemetry import trace
 from opentelemetry.trace.status import StatusCode
 
 
@@ -55,6 +57,40 @@ class TestSpanAttributes:
             assert "call_id_stack" in attributes["context_data"]
         else:
             assert "call_id_stack" not in attributes
+
+
+class TestNoTracer:
+    @pytest.fixture
+    def container(self, container_factory):
+        class Service:
+            name = "service"
+
+            @rpc
+            def method(self, arg, kwarg=None):
+                return "OK"
+
+        container = container_factory(Service)
+        container.start()
+
+        return container
+
+    @pytest.fixture
+    def trace_provider(self):
+        """ Temporarily replace the configured trace provider with the default
+        provider that would be used if no SDK was in use.
+        """
+        with patch("nameko_opentelemetry.trace") as patched:
+            patched.get_tracer.return_value = trace.get_tracer(
+                __name__, "", trace._DefaultTracerProvider()
+            )
+            yield
+
+    def test_not_recording(self, trace_provider, container, memory_exporter):
+        with entrypoint_hook(container, "method") as hook:
+            assert hook("arg", kwarg="kwarg") == "OK"
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 0
 
 
 class TestResultAttributes:
@@ -230,6 +266,36 @@ class TestExceptions:
         # extra attributes
         assert event.attributes["exception.expected"] == "True"
 
+    @patch(
+        "nameko_opentelemetry.entrypoints.format_exception",
+        side_effect=Exception("boom"),
+    )
+    def test_unserializable_exception(
+        self, format_exccepion, container, memory_exporter
+    ):
+
+        with entrypoint_hook(container, "raises_expected") as hook:
+            with pytest.raises(Exception):
+                hook("arg", kwarg="kwarg")
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 1
+
+        span = spans[0]
+        assert len(span.events) == 1
+
+        event = span.events[0]
+        assert event.name == "exception"
+        assert event.attributes["exception.type"] == "Error"
+        assert event.attributes["exception.message"] == "boom"
+        assert (
+            "Exception occurred on stacktrace formatting"
+            in event.attributes["exception.stacktrace"]
+        )
+        assert event.attributes["exception.escaped"] == "True"
+        # extra attributes
+        assert event.attributes["exception.expected"] == "True"
+
 
 class TestCallArgs:
     @pytest.fixture(
@@ -378,3 +444,34 @@ class TestStatus:
         span = spans[0]
         assert span.status.is_ok
         assert span.status.status_code == StatusCode.OK
+
+
+class TestPartialSpan:
+    @pytest.fixture
+    def container(self, container_factory):
+        class Service:
+            name = "service"
+
+            @rpc
+            def method(self, arg, kwarg=None):
+                return "OK"
+
+        container = container_factory(Service)
+        container.start()
+
+        return container
+
+    @patch("nameko_opentelemetry.entrypoints.active_spans")
+    def test_span_not_started(self, active_spans, container, memory_exporter):
+
+        # fake a missing span
+        active_spans.get.return_value = None
+
+        with pytest.warns(UserWarning) as warnings:
+            with entrypoint_hook(container, "method") as hook:
+                assert hook("arg", kwarg="kwarg") == "OK"
+
+        assert "no active span" in str(warnings[0].message)
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 0

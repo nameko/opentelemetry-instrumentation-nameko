@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import inspect
 import socket
+import warnings
 from collections import defaultdict
 from functools import partial
 from traceback import format_exception
@@ -203,6 +204,7 @@ def worker_result(tracer, config, wrapped, instance, args, kwargs):
     activated = active_spans.get(worker_ctx)
     if not activated:
         # something went wrong when starting the span; nothing more to do
+        warnings.warn("worker result when no active span")
         return
 
     activation, span, token, adapter = activated
