@@ -11,13 +11,26 @@ class TestDefaultScubber:
 
     @pytest.mark.parametrize(
         "value",
-        ["value", 1, 1.0, True, [1, 2, 3], dict(foo="bar"), (1, 2, 3), object()],
+        [
+            "value",
+            b"value",
+            1,
+            1.0,
+            True,
+            [1, 2, 3],
+            dict(foo="bar"),
+            (1, 2, 3),
+            object(),
+        ],
     )
     def test_innocuous(self, value, scrubber):
         assert scrubber.scrub(value) == value
 
-    def test_sensitive_scalar(self, scrubber):
+    def test_sensitive_string(self, scrubber):
         assert scrubber.scrub("matt@pacerevenue.com") == SCRUBBED
+
+    def test_sensitive_bytes(self, scrubber):
+        assert scrubber.scrub(b"matt@pacerevenue.com") == SCRUBBED.encode("utf-8")
 
     def test_list_with_sensitive_item(self, scrubber):
         data = ["foo", "matt@pacerevenue.com", "bar"]

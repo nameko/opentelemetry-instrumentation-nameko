@@ -9,6 +9,8 @@ from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import SpanKind
 from opentelemetry.trace.status import StatusCode
 
+from nameko_opentelemetry.scrubbers import SCRUBBED
+
 
 class TestCaptureIncomingContext:
     @pytest.fixture
@@ -249,9 +251,7 @@ class TestCallArgs:
     ):
 
         with entrypoint_waiter(container, "get_resource"):
-            resp = web_session.get(
-                "/resource", headers={"auth": "should-be-secret"}
-            )  # XXX
+            resp = web_session.get("/resource", headers={"name": "matt"})
 
         assert resp.status_code == 200
 
@@ -260,7 +260,7 @@ class TestCallArgs:
 
         attributes = spans[0].attributes
         if send_headers:
-            assert "['auth', 'should-be-secret']" in attributes["request.headers"]
+            assert "'name': 'matt'" in attributes["request.headers"]
         else:
             assert "request.headers" not in attributes
 
@@ -606,3 +606,58 @@ class TestStatus:
         assert not span.status.is_ok
         assert span.status.status_code == StatusCode.ERROR
         assert span.status.description == "Error: boom"
+
+
+class TestScrubbing:
+    @pytest.fixture
+    def container(self, container_factory, web_config):
+        class Service:
+            name = "service"
+
+            @http("GET", "/resource")
+            def get_resource(self, request):
+                return (request.data or b"OK").decode("utf-8")
+
+        container = container_factory(Service)
+        container.start()
+
+        return container
+
+    def test_scrub_headers(self, container, web_session, memory_exporter):
+
+        with entrypoint_waiter(container, "get_resource"):
+            resp = web_session.get("/resource", headers={"token": "secret"})
+
+        assert resp.status_code == 200
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 1
+
+        server_span = spans[0]
+        assert f"'token': '{SCRUBBED}'" in server_span.attributes["request.headers"]
+
+    def test_scrub_request_payload(self, container, web_session, memory_exporter):
+
+        with entrypoint_waiter(container, "get_resource"):
+            resp = web_session.get("/resource", data={"token": "secret"})
+
+        assert resp.status_code == 200
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 1
+
+        server_span = spans[0]
+        assert server_span.attributes["request.data"] == f"{{'token': '{SCRUBBED}'}}"
+
+    def test_scrub_response(self, container, web_session, memory_exporter):
+
+        with entrypoint_waiter(container, "get_resource"):
+            resp = web_session.get("/resource", data="matt@pacerevenue.com")
+
+        assert resp.status_code == 200
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 1
+
+        server_span = spans[0]
+        assert server_span.attributes["response.data"] == SCRUBBED

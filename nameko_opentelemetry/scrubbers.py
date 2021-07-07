@@ -85,13 +85,26 @@ class DefaultScrubber:
 
             return data
 
-        if isinstance(data, collections.abc.Iterable) and not isinstance(data, str):
+        if isinstance(data, collections.abc.Iterable) and not isinstance(
+            data, (str, bytes)
+        ):
             scrubbed = list(map(self.scrub, data))
             try:
                 return type(data)(scrubbed)
             except TypeError:
                 return list(scrubbed)
 
-        if self.sensitive_value(str(data)):
-            return self.REPLACEMENT
+        if isinstance(data, bytes):
+            try:
+                decoded = data.decode("utf-8")
+            except UnicodeDecodeError:
+                pass
+            else:
+                if self.sensitive_value(decoded):
+                    return self.REPLACEMENT.encode("utf-8")
+
+        if isinstance(data, str):
+            if self.sensitive_value(str(data)):
+                return self.REPLACEMENT
+
         return data
