@@ -50,6 +50,7 @@ def collect_client_attributes(target_service, target_method, publisher, kwargs, 
     attributes = {
         "nameko.rpc.target_service": target_service,
         "nameko.rpc.target_method": target_method,
+        # XXX send payload? probably should, for consistency w/ everything else
     }
     attributes.update(amqp_publisher_attributes(publisher, kwargs, config))
     return attributes

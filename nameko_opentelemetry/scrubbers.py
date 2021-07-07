@@ -1,8 +1,6 @@
 import collections
 import re
 
-from nameko.constants import HEADER_PREFIX
-
 from nameko_opentelemetry.utils import import_by_path
 
 
