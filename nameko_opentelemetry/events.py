@@ -19,6 +19,7 @@ from nameko_opentelemetry.amqp import (
     amqp_publisher_attributes,
 )
 from nameko_opentelemetry.entrypoints import EntrypointAdapter
+from nameko_opentelemetry.scrubbers import scrub
 from nameko_opentelemetry.utils import (
     call_function_get_frame,
     serialise_to_string,
@@ -61,7 +62,8 @@ def collect_client_attributes(
     }
     if config.get("send_request_payloads"):
         data, truncated = truncate(
-            serialise_to_string(event_data), max_len=config.get("truncate_max_length")
+            serialise_to_string(scrub(event_data, config)),
+            max_len=config.get("truncate_max_length"),
         )
         attributes.update(
             {
@@ -69,7 +71,7 @@ def collect_client_attributes(
                 "nameko.events.event_data_truncated": str(truncated),
             }
         )
-    attributes.update(amqp_publisher_attributes(publisher, kwargs))
+    attributes.update(amqp_publisher_attributes(publisher, kwargs, config))
     return attributes
 
 

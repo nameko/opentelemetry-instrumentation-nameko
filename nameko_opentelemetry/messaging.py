@@ -17,6 +17,7 @@ from nameko_opentelemetry.amqp import (
     amqp_publisher_attributes,
 )
 from nameko_opentelemetry.entrypoints import EntrypointAdapter
+from nameko_opentelemetry.scrubbers import scrub
 from nameko_opentelemetry.utils import serialise_to_string, truncate
 
 
@@ -62,7 +63,8 @@ def get_dependency(tracer, config, wrapped, instance, args, kwargs):
         if config.get("send_request_payloads"):
 
             data, truncated = truncate(
-                serialise_to_string(msg), max_len=config.get("truncate_max_length")
+                serialise_to_string(scrub(msg, config)),
+                max_len=config.get("truncate_max_length"),
             )
             attributes.update(
                 {
@@ -70,7 +72,9 @@ def get_dependency(tracer, config, wrapped, instance, args, kwargs):
                     "nameko.messaging.payload_truncated": str(truncated),
                 }
             )
-        attributes.update(amqp_publisher_attributes(publisher.publisher, kwargs))
+        attributes.update(
+            amqp_publisher_attributes(publisher.publisher, kwargs, config)
+        )
 
         with tracer.start_as_current_span(
             f"Publish to {target}", attributes=attributes, kind=trace.SpanKind.PRODUCER,

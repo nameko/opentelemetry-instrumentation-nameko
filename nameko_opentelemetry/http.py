@@ -14,6 +14,7 @@ from wrapt import wrap_function_wrapper
 
 from nameko_opentelemetry import utils
 from nameko_opentelemetry.entrypoints import EntrypointAdapter
+from nameko_opentelemetry.scrubbers import scrub
 
 
 class HttpEntrypointAdapter(EntrypointAdapter):
@@ -55,21 +56,29 @@ class HttpEntrypointAdapter(EntrypointAdapter):
         attributes.update(wsgi.collect_request_attributes(request.environ))
 
         if self.config.get("send_headers"):
-            headers = []
+            headers = {}
             for key, value in request.environ.items():
                 key = str(key)
                 if key.startswith("HTTP_") and key not in (
                     "HTTP_CONTENT_TYPE",
                     "HTTP_CONTENT_LENGTH",
                 ):
-                    headers.append((key[5:].lower(), str(value)))
+                    headers[key[5:].lower()] = str(value)
                 elif key in ("CONTENT_TYPE", "CONTENT_LENGTH"):
-                    headers.append((key.lower(), str(value)))
+                    headers[key.lower()] = str(value)
 
-            attributes.update({"request.headers": utils.serialise_to_string(headers)})
+            attributes.update(
+                {
+                    "request.headers": utils.serialise_to_string(
+                        scrub(headers, self.config)
+                    )
+                }
+            )
 
         if self.config.get("send_request_payloads"):
-            attributes.update({"request.data": utils.serialise_to_string(data)})
+            attributes.update(
+                {"request.data": utils.serialise_to_string(scrub(data, self.config))}
+            )
 
         return attributes
 

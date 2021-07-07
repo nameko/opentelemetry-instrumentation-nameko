@@ -28,7 +28,6 @@ def config():
         "send_response_payloads": True,
         "send_context_data": True,  # XXX?
         "truncate_max_length": 200,
-        "scrubbers": ["a class reference", "another class reference"],
     }
 
 

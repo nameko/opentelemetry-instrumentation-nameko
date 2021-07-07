@@ -2,6 +2,7 @@
 """ Utility functions that extract relevant attributes from AMQP
 publishers and consumers.
 """
+from nameko_opentelemetry.scrubbers import scrub
 from nameko_opentelemetry.utils import serialise_to_string
 
 
@@ -18,7 +19,7 @@ def get_routing_key(publisher, kwargs):
     return serialise_to_string(options.get("routing_key"))
 
 
-def get_headers(publisher, kwargs):
+def get_headers(publisher, kwargs, config):
     """
     Extract final headers included in the published message. Must be extracted
     from several combined sources.
@@ -26,10 +27,10 @@ def get_headers(publisher, kwargs):
     headers = publisher.publish_kwargs.get("headers", {})
     headers.update(kwargs.get("headers", {}))
     headers.update(kwargs.get("extra_headers", {}))
-    return serialise_to_string(headers)
+    return serialise_to_string(scrub(headers, config))
 
 
-def amqp_publisher_attributes(publisher, kwargs):
+def amqp_publisher_attributes(publisher, kwargs, config):
     """
     Extract attributes relevant to AMQP message publishers.
 
@@ -42,7 +43,7 @@ def amqp_publisher_attributes(publisher, kwargs):
             kwargs.get(attribute, getattr(publisher, attribute, None))
         )
 
-    return {
+    attributes = {
         f"{PREFIX}.amqp_uri": generic_getter("amqp_uri"),
         f"{PREFIX}.ssl": generic_getter("ssl"),
         f"{PREFIX}.use_confirms": generic_getter("use_confirms"),
@@ -58,8 +59,12 @@ def amqp_publisher_attributes(publisher, kwargs):
         f"{PREFIX}.transport_options": generic_getter("transport_options"),
         f"{PREFIX}.publish_kwargs": generic_getter("publish_kwargs"),
         f"{PREFIX}.routing_key": get_routing_key(publisher, kwargs),
-        f"{PREFIX}.headers": get_headers(publisher, kwargs),
     }
+
+    if config.get("send_headers"):
+        attributes.update({f"{PREFIX}.headers": get_headers(publisher, kwargs, config)})
+
+    return attributes
 
 
 def amqp_consumer_attributes(consumer):

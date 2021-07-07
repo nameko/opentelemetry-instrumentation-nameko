@@ -46,12 +46,12 @@ class RpcEntrypointAdapter(EntrypointAdapter):
         return attributes
 
 
-def collect_client_attributes(target_service, target_method, publisher, kwargs):
+def collect_client_attributes(target_service, target_method, publisher, kwargs, config):
     attributes = {
         "nameko.rpc.target_service": target_service,
         "nameko.rpc.target_method": target_method,
     }
-    attributes.update(amqp_publisher_attributes(publisher, kwargs))
+    attributes.update(amqp_publisher_attributes(publisher, kwargs, config))
     return attributes
 
 
@@ -113,6 +113,7 @@ def initiate_call(tracer, config, wrapped, instance, args, kwargs):
             # XXX EXCLUDE if not send_headers (refactor to do publisher.publish first)
             "extra_headers": encode_to_headers(client.context_data),
         },
+        config,
     )
 
     span = tracer.start_span(
