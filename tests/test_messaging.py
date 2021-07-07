@@ -9,6 +9,7 @@ from nameko.testing.utils import get_extension
 from opentelemetry.trace import SpanKind
 
 from nameko_opentelemetry import active_tracer
+from nameko_opentelemetry.scrubbers import SCRUBBED
 
 
 exchange = Exchange(name="test")
@@ -237,3 +238,43 @@ class TestAdditionalSpans:
         )[0]
 
         assert internal_span.name == "foobar"
+
+
+class TestScrubbing:
+    @pytest.fixture
+    def container(self, container_factory, rabbit_config):
+        class Service:
+            name = "service"
+
+            publish = Publisher(exchange)
+
+            @consume(queue)
+            def handle(self, payload):
+                return payload
+
+        container = container_factory(Service)
+        container.start()
+
+        return container
+
+    @pytest.fixture
+    def publish(self, rabbit_config, container):
+        dp = get_extension(container, Publisher)
+        return dp.get_dependency(Mock(context_data={}))
+
+    def test_payload_scrubber(self, container, publish, memory_exporter):
+
+        payload = {"auth": "token"}
+        with entrypoint_waiter(container, "handle") as result:
+            publish(payload)
+        assert result.get() == payload
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 2
+
+        client_span = list(filter(lambda span: span.kind == SpanKind.PRODUCER, spans))[
+            0
+        ]
+
+        attributes = client_span.attributes
+        assert attributes["nameko.messaging.payload"] == f"{{'auth': '{SCRUBBED}'}}"
