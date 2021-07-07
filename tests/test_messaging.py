@@ -278,3 +278,45 @@ class TestScrubbing:
 
         attributes = client_span.attributes
         assert attributes["nameko.messaging.payload"] == f"{{'auth': '{SCRUBBED}'}}"
+
+    def test_call_args_scrubber(self, container, publish, memory_exporter):
+
+        payload = {"auth": "token"}
+        with entrypoint_waiter(container, "handle") as result:
+            publish(payload)
+        assert result.get() == payload
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 2
+
+        server_span = list(filter(lambda span: span.kind == SpanKind.CONSUMER, spans))[
+            0
+        ]
+
+        attributes = server_span.attributes
+        assert attributes["call_args"] == f"{{'payload': {{'auth': '{SCRUBBED}'}}}}"
+
+    def test_header_scrubber(self, container, publish, memory_exporter):
+
+        payload = {"auth": "token"}
+        with entrypoint_waiter(container, "handle") as result:
+            publish(payload, headers={"password": "secret"})
+        assert result.get() == payload
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 2
+
+        client_span = list(filter(lambda span: span.kind == SpanKind.PRODUCER, spans))[
+            0
+        ]
+        server_span = list(filter(lambda span: span.kind == SpanKind.CONSUMER, spans))[
+            0
+        ]
+
+        # headers scrubbed at client
+        assert (
+            client_span.attributes["nameko.amqp.headers"]
+            == f"{{'password': '{SCRUBBED}'}}"
+        )
+        # context data scrubbed at server
+        assert f"'password': '{SCRUBBED}'" in server_span.attributes["context_data"]

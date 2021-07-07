@@ -251,7 +251,7 @@ class TestScrubbing:
         class Service:
             name = "service"
 
-            dispatch = EventDispatcher(expiration=10)
+            dispatch = EventDispatcher(expiration=10, headers={"password": "secret"})
 
             @event_handler("service", "example")
             def handle(self, payload):
@@ -265,7 +265,9 @@ class TestScrubbing:
     @pytest.fixture(params=["standalone", "dependency_provider"])
     def dispatch(self, rabbit_config, request, container):
         if request.param == "standalone":
-            dispatch = nameko.standalone.events.event_dispatcher(expiration=10)
+            dispatch = nameko.standalone.events.event_dispatcher(
+                expiration=10, headers={"password": "secret"}
+            )
             yield lambda event_type, payload: dispatch("service", event_type, payload)
 
         if request.param == "dependency_provider":
@@ -288,3 +290,45 @@ class TestScrubbing:
 
         attributes = client_span.attributes
         assert attributes["nameko.events.event_data"] == f"{{'auth': '{SCRUBBED}'}}"
+
+    def test_call_args_scrubber(self, container, dispatch, memory_exporter):
+
+        payload = {"auth": "token"}
+        with entrypoint_waiter(container, "handle") as result:
+            dispatch("example", payload)
+        assert result.get() == payload
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 2
+
+        server_span = list(filter(lambda span: span.kind == SpanKind.CONSUMER, spans))[
+            0
+        ]
+
+        attributes = server_span.attributes
+        assert attributes["call_args"] == f"{{'payload': {{'auth': '{SCRUBBED}'}}}}"
+
+    def test_header_scrubber(self, container, dispatch, memory_exporter):
+
+        payload = {"auth": "token"}
+        with entrypoint_waiter(container, "handle") as result:
+            dispatch("example", payload)
+        assert result.get() == payload
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 2
+
+        client_span = list(filter(lambda span: span.kind == SpanKind.PRODUCER, spans))[
+            0
+        ]
+        server_span = list(filter(lambda span: span.kind == SpanKind.CONSUMER, spans))[
+            0
+        ]
+
+        # headers scrubbed at client
+        assert (
+            client_span.attributes["nameko.amqp.headers"]
+            == f"{{'password': '{SCRUBBED}'}}"
+        )
+        # context data scrubbed at server
+        assert f"'password': '{SCRUBBED}'" in server_span.attributes["context_data"]
