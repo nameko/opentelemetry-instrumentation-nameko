@@ -1,6 +1,8 @@
 import collections
 import re
 
+from nameko.constants import HEADER_PREFIX
+
 from nameko_opentelemetry.utils import import_by_path
 
 
@@ -40,6 +42,8 @@ class DefaultScrubber:
         "stripeToken",
     )
 
+    COMMON_KEY_PREFIXES = ("nameko.", "x-")
+
     SENSITIVE_VALUES = (
         re.compile(r"[a-z0-9._%\+\-—|]+@[a-z0-9.\-—|]+\.[a-z|]{2,6}"),  # email address
     )
@@ -50,6 +54,10 @@ class DefaultScrubber:
         self.config = config
 
     def sensitive_key(self, key):
+        for prefix in self.COMMON_KEY_PREFIXES:
+            if key.startswith(prefix):
+                chop = len(prefix)
+                key = key[chop:]
         return key in self.SENSITIVE_KEYS
 
     def sensitive_value(self, value):

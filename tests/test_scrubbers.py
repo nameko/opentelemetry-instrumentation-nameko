@@ -1,13 +1,5 @@
 # -*- coding: utf-8 -*-
-import uuid
-from unittest.mock import Mock
-
 import pytest
-from nameko.rpc import ServiceRpc, rpc
-from nameko.standalone.rpc import ServiceRpcClient
-from nameko.testing.services import entrypoint_waiter
-from nameko.testing.utils import get_extension
-from opentelemetry.trace import SpanKind
 
 from nameko_opentelemetry.scrubbers import SCRUBBED, DefaultScrubber, scrub
 
@@ -100,6 +92,13 @@ class TestDefaultScubber:
             "bar",
         ]
 
+    def test_common_key_prefixes(self, scrubber):
+        data = {"x-token": "secret", "nameko.token": "secret"}
+        assert scrubber.scrub(data) == {"x-token": SCRUBBED, "nameko.token": SCRUBBED}
+
+        # source data not modified
+        assert data == {"x-token": "secret", "nameko.token": "secret"}
+
 
 class CustomScrubber(DefaultScrubber):
     SENSITIVE_KEYS = ("name",)
@@ -119,85 +118,3 @@ class TestScrub:
     def test_register_new_scrubber(self, config):
         data = {"name": "Matt", "email": "matt@pacerevenue.com"}
         assert scrub(data, config) == {"name": "***", "email": "***"}
-
-
-class XTestScrubbers:
-    @pytest.fixture
-    def container(self, container_factory, rabbit_config):
-        class Service:
-            name = "service"
-
-            self_rpc = ServiceRpc("service")
-
-            @rpc
-            def method(self, arg, password=None):
-                return {"token": "should-be-secret"}
-
-        container = container_factory(Service)
-        container.start()
-
-        return container
-
-    @pytest.fixture(params=["standalone", "dependency_provider"])
-    def client(self, rabbit_config, request, container):
-
-        context_data = {
-            "call_id": f"service.method.{uuid.uuid4()}",
-            "token": "should-be-secret",
-        }
-
-        if request.param == "standalone":
-            with ServiceRpcClient("service", context_data=context_data) as client:
-                yield client
-        if request.param == "dependency_provider":
-            dp = get_extension(container, ServiceRpc)
-            yield dp.get_dependency(Mock(context_data=context_data))
-
-    def test_response_scrubber(self, container, client, memory_exporter):
-
-        with entrypoint_waiter(container, "method"):
-            assert client.method("arg", password="password") == {
-                "token": "should-be-secret"
-            }
-
-        spans = memory_exporter.get_finished_spans()
-        assert len(spans) == 2
-
-        server_span = list(filter(lambda span: span.kind == SpanKind.SERVER, spans))[0]
-
-        assert server_span.attributes["result"] == '{"token": "scrubbed"}'
-
-    def test_call_args_scrubber(self, container, client, memory_exporter):
-
-        with entrypoint_waiter(container, "method"):
-            assert client.method("arg", password="password") == {
-                "token": "should-be-secret"
-            }
-
-        spans = memory_exporter.get_finished_spans()
-        assert len(spans) == 2
-
-        client_span = list(filter(lambda span: span.kind == SpanKind.CLIENT, spans))[0]
-        server_span = list(filter(lambda span: span.kind == SpanKind.SERVER, spans))[0]
-
-        assert (
-            client_span.attributes["call_args"]
-            == '{"arg": "arg", "password": "scrubbed"}'
-        )
-        assert server_span.attributes["result"] == '{"token": "scrubbed"}'
-
-    def test_context_data_scrubber(self, container, client, memory_exporter):
-
-        with entrypoint_waiter(container, "method"):
-            assert client.method("arg", password="password") == {
-                "token": "should-be-secret"
-            }
-
-        spans = memory_exporter.get_finished_spans()
-        assert len(spans) == 2
-
-        client_span = list(filter(lambda span: span.kind == SpanKind.CLIENT, spans))[0]
-        server_span = list(filter(lambda span: span.kind == SpanKind.SERVER, spans))[0]
-
-        assert '"token": "scrubbed"' in client_span.attributes.context_data
-        assert '"token": "scrubbed"' in server_span.attributes.context_data
