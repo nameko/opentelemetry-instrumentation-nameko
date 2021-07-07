@@ -14,6 +14,7 @@ class TestDefaultScubber:
         [
             "value",
             b"value",
+            b"\x90",
             1,
             1.0,
             True,

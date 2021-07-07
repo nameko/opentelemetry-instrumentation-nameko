@@ -60,7 +60,7 @@ class DefaultScrubber:
         return key in self.SENSITIVE_KEYS
 
     def sensitive_value(self, value):
-        for regex in self.SENSITIVE_VALUES:
+        for regex in self.SENSITIVE_VALUES:  # pragma: no cover (branch to exit)
             return regex.match(value)
 
     def scrub(self, data):
