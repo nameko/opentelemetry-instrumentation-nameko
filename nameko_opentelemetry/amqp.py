@@ -61,7 +61,7 @@ def amqp_publisher_attributes(publisher, kwargs, config):
         f"{PREFIX}.routing_key": get_routing_key(publisher, kwargs),
     }
 
-    if config.get("send_headers"):
+    if config.get("send_headers"):  # pragma: no cover (temporary; module needs tests)
         attributes.update({f"{PREFIX}.headers": get_headers(publisher, kwargs, config)})
 
     return attributes
