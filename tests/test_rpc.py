@@ -12,6 +12,7 @@ from opentelemetry.trace import SpanKind
 from opentelemetry.trace.status import StatusCode
 
 from nameko_opentelemetry import active_tracer
+from nameko_opentelemetry.scrubbers import SCRUBBED
 
 
 class TestCaptureIncomingContext:
@@ -242,3 +243,45 @@ class TestAdditionalSpans:
         )[0]
 
         assert internal_span.name == "foobar"
+
+
+class TestScrubbing:
+    @pytest.fixture
+    def container(self, container_factory, rabbit_config):
+        class Service:
+            name = "service"
+
+            self_rpc = ServiceRpc("service")
+
+            @rpc
+            def method(self, arg, kwarg=None):
+                return "OK"
+
+        container = container_factory(Service)
+        container.start()
+
+        return container
+
+    @pytest.fixture(params=["standalone", "dependency_provider"])
+    def client(self, rabbit_config, request, container):
+        if request.param == "standalone":
+            with ServiceRpcClient("service", context_data={"auth": "token"}) as client:
+                yield client
+        if request.param == "dependency_provider":
+            dp = get_extension(container, ServiceRpc)
+            yield dp.get_dependency(Mock(context_data={"auth": "token"}))
+
+    def test_header_scrubber(self, container, client, memory_exporter):
+
+        with entrypoint_waiter(container, "method"):
+            assert client.method("arg", kwarg="kwarg") == "OK"
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 2
+
+        client_span = list(filter(lambda span: span.kind == SpanKind.CLIENT, spans))[0]
+
+        assert (
+            f"'nameko.auth': '{SCRUBBED}'"
+            in client_span.attributes["nameko.amqp.headers"]
+        )
