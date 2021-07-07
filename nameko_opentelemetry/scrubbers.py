@@ -87,6 +87,3 @@ class DefaultScrubber:
         if self.sensitive_value(str(data)):
             return self.REPLACEMENT
         return data
-
-
-# ??? start with usage.
