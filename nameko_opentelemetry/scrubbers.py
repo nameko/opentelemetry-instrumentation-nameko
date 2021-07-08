@@ -70,6 +70,7 @@ class DefaultScrubber:
         """
         if isinstance(data, dict):
             data = data.copy()
+            replace_keys = {}
             for key, value in data.items():
                 if self.sensitive_key(key):
                     value = self.REPLACEMENT
@@ -77,10 +78,13 @@ class DefaultScrubber:
                     value = self.scrub(value)
 
                 if self.sensitive_value(key):
-                    del data[key]
-                    data[self.REPLACEMENT] = value
+                    replace_keys[key] = value
                 else:
                     data[key] = value
+
+            for key, value in replace_keys.items():
+                del data[key]
+                data[self.REPLACEMENT] = value
 
             return data
 
