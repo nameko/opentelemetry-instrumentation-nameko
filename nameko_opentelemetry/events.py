@@ -14,10 +14,7 @@ from opentelemetry.instrumentation.utils import unwrap
 from opentelemetry.propagate import inject
 from wrapt import FunctionWrapper, wrap_function_wrapper
 
-from nameko_opentelemetry.amqp import (
-    amqp_consumer_attributes,
-    amqp_publisher_attributes,
-)
+from nameko_opentelemetry.amqp import amqp_consumer_attributes
 from nameko_opentelemetry.entrypoints import EntrypointAdapter
 from nameko_opentelemetry.scrubbers import scrub
 from nameko_opentelemetry.utils import (
@@ -71,7 +68,6 @@ def collect_client_attributes(
                 "nameko.events.event_data_truncated": str(truncated),
             }
         )
-    attributes.update(amqp_publisher_attributes(publisher, kwargs, config))
     return attributes
 
 
