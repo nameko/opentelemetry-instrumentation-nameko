@@ -19,10 +19,7 @@ from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util._time import _time_ns
 from wrapt import wrap_function_wrapper
 
-from nameko_opentelemetry.amqp import (
-    amqp_consumer_attributes,
-    amqp_publisher_attributes,
-)
+from nameko_opentelemetry.amqp import amqp_consumer_attributes
 from nameko_opentelemetry.entrypoints import EntrypointAdapter
 
 
@@ -42,16 +39,6 @@ class RpcEntrypointAdapter(EntrypointAdapter):
         consumer = self.worker_ctx.entrypoint.rpc_consumer.consumer
         attributes.update(amqp_consumer_attributes(consumer))
         return attributes
-
-
-def collect_client_attributes(target_service, target_method, publisher, kwargs, config):
-    attributes = {
-        "nameko.rpc.target_service": target_service,
-        "nameko.rpc.target_method": target_method,
-        # XXX send payload? probably should, for consistency w/ everything else
-    }
-    attributes.update(amqp_publisher_attributes(publisher, kwargs, config))
-    return attributes
 
 
 def initiate_call(tracer, config, wrapped, instance, args, kwargs):
