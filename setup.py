@@ -4,11 +4,10 @@ from setuptools import find_packages, setup
 
 
 setup(
-    name="nameko-opentelemetry",
-    version="1.0.0",
+    name="opentelemetry-instrumentation-nameko",
     description="Nameko extension producing opentelemetry data",
     author="Nameko Authors",
-    url="https://github.com/nameko/nameko-opentelemetry",
+    url="https://github.com/nameko/opentelemetry-instrumentation-nameko",
     packages=find_packages(exclude=["test", "test.*"]),
     install_requires=[
         "nameko==3.0.0rc9",
