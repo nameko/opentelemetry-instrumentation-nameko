@@ -1,6 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import os
+
 from setuptools import find_packages, setup
+
+
+BASE_DIR = os.path.dirname(__file__)
+PACKAGE_INFO = {}
+
+VERSION_FILENAME = os.path.join(BASE_DIR, "nameko_opentelemetry", "version.py")
+with open(VERSION_FILENAME) as f:
+    exec(f.read(), PACKAGE_INFO)
+
+PACKAGE_FILENAME = os.path.join(BASE_DIR, "nameko_opentelemetry", "package.py")
+with open(PACKAGE_FILENAME) as f:
+    exec(f.read(), PACKAGE_INFO)
 
 
 setup(
@@ -22,6 +36,8 @@ setup(
             "opentelemetry-sdk",
             "opentelemetry-instrumentation-requests",
         ]
+        + PACKAGE_INFO["_instruments"],
+        "instruments": PACKAGE_INFO["_instruments"],
     },
     dependency_links=[],
     zip_safe=True,
