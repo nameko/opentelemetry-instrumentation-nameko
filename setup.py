@@ -20,6 +20,7 @@ with open(PACKAGE_FILENAME) as f:
 setup(
     name="opentelemetry-instrumentation-nameko",
     description="Nameko extension producing opentelemetry data",
+    version=PACKAGE_INFO["__version__"],
     author="Nameko Authors",
     url="https://github.com/nameko/opentelemetry-instrumentation-nameko",
     packages=find_packages(exclude=["test", "test.*"]),
@@ -30,13 +31,13 @@ setup(
         "opentelemetry-instrumentation-wsgi",
     ],
     extras_require={
-        "dev": [
+        "dev": list(PACKAGE_INFO["_instruments"])
+        + [
             "coverage",
             "pytest",
             "opentelemetry-sdk",
             "opentelemetry-instrumentation-requests",
-        ]
-        + PACKAGE_INFO["_instruments"],
+        ],
         "instruments": PACKAGE_INFO["_instruments"],
     },
     dependency_links=[],
