@@ -232,6 +232,8 @@ def worker_setup(tracer, config, wrapped, instance, args, kwargs):
 
     adapter.start_span(span)
 
+    wrapped(*args, **kwargs)
+
 
 def worker_result(tracer, config, wrapped, instance, args, kwargs):
     """ Wrap nameko.containers.ServiceContainer._worker_result.
@@ -259,6 +261,8 @@ def worker_result(tracer, config, wrapped, instance, args, kwargs):
     span.end(_time_ns())
     context.detach(token)
 
+    wrapped(*args, **kwargs)
+
 
 def instrument(tracer, config):
 
@@ -285,5 +289,5 @@ def instrument(tracer, config):
 
 
 def uninstrument():
-    unwrap(nameko.containers.ServiceContainer, "worker_setup")
-    unwrap(nameko.containers.ServiceContainer, "worker_result")
+    unwrap(nameko.containers.ServiceContainer, "_worker_setup")
+    unwrap(nameko.containers.ServiceContainer, "_worker_result")
