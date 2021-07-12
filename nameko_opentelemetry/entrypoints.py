@@ -97,13 +97,14 @@ class EntrypointAdapter:
                     attributes=self.get_exception_attributes(exc_info),
                 )
             else:
-                span.set_attributes(self.get_result_attributes(result))
+                span.set_attributes(self.get_result_attributes(result) or {})
 
             status = self.get_status(result, exc_info)
             span.set_status(status)
 
     def get_attributes(self):
-        """ Common attributes for most entrypoints.
+        """ Common attributes for most entrypoints, and hooks into subclassable
+        implementations to fetch optional attributes.
         """
         entrypoint = self.worker_ctx.entrypoint
 
@@ -115,46 +116,49 @@ class EntrypointAdapter:
             "available_workers": self.worker_ctx.container._worker_pool.free(),
         }
 
-        if self.config.get("send_headers"):
-            attributes.update(
-                {
-                    "context_data": utils.serialise_to_string(
-                        scrub(self.worker_ctx.data, self.config)
-                    )
-                }
+        attributes.update(self.get_header_attributes() or {})
+
+        if getattr(entrypoint, "sensitive_arguments", None):
+            call_args = get_redacted_args(
+                entrypoint, *self.worker_ctx.args, **self.worker_ctx.kwargs
             )
+            redacted = True
+        else:
+            method = getattr(entrypoint.container.service_cls, entrypoint.method_name)
+            call_args = inspect.getcallargs(
+                method, None, *self.worker_ctx.args, **self.worker_ctx.kwargs
+            )
+            del call_args["self"]
+            redacted = False
 
+        attributes.update(self.get_call_args_attributes(call_args, redacted) or {})
+
+        return attributes
+
+    def get_call_args_attributes(self, call_args, redacted):
+        """ ...
+        """
         if self.config.get("send_request_payloads"):
-
-            if getattr(entrypoint, "sensitive_arguments", None):
-                call_args = get_redacted_args(
-                    entrypoint, *self.worker_ctx.args, **self.worker_ctx.kwargs
-                )
-                redacted = True
-            else:
-                method = getattr(
-                    entrypoint.container.service_cls, entrypoint.method_name
-                )
-                call_args = inspect.getcallargs(
-                    method, None, *self.worker_ctx.args, **self.worker_ctx.kwargs
-                )
-                del call_args["self"]
-                redacted = False
-
             call_args, truncated = utils.truncate(
                 utils.serialise_to_string(scrub(call_args, self.config)),
                 max_len=self.config.get("truncate_max_length"),
             )
 
-            attributes.update(
-                {
-                    "call_args": call_args,
-                    "call_args_redacted": str(redacted),
-                    "call_args_truncated": str(truncated),
-                }
-            )
+            return {
+                "call_args": call_args,
+                "call_args_truncated": str(truncated),
+                "call_args_redacted": str(redacted),
+            }
 
-        return attributes
+    def get_header_attributes(self):
+        """ ...
+        """
+        if self.config.get("send_headers"):
+            return {
+                "context_data": utils.serialise_to_string(
+                    scrub(self.worker_ctx.data, self.config)
+                )
+            }
 
     def get_exception_attributes(self, exc_info):
         """ Additional attributes to save alongside a worker exception.
@@ -175,13 +179,9 @@ class EntrypointAdapter:
         """ Attributes describing the entrypoint method result.
         """
         if self.config.get("send_response_payloads"):
-
-            attributes = {
+            return {
                 "result": utils.serialise_to_string(scrub(result or "", self.config))
             }
-        else:
-            attributes = {}
-        return attributes
 
     def get_status(self, result, exc_info):
         """ Span status for this worker.
