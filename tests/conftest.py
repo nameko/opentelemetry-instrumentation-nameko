@@ -13,7 +13,9 @@ from nameko_opentelemetry import NamekoInstrumentor
 @pytest.fixture(scope="session")
 def filter_spans():
     def filter_rabbit(span):
-        if "api/vhosts/nameko_test" not in span.attributes.get("http.url", ""):
+        if "api/vhosts/nameko_test" not in span.attributes.get(
+            "http.url", ""
+        ):  # pragma: no cover (don't cover false branch)
             return True
 
     def get_finished_spans(wrapped, instance, args, kwargs):
