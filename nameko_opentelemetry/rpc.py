@@ -12,7 +12,6 @@ from weakref import WeakKeyDictionary
 
 import nameko.rpc
 from nameko.exceptions import IncorrectSignature, MethodNotFound
-from nameko.messaging import encode_to_headers
 from opentelemetry import trace
 from opentelemetry.instrumentation.utils import unwrap
 from opentelemetry.propagate import inject
@@ -20,12 +19,8 @@ from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util._time import _time_ns
 from wrapt import wrap_function_wrapper
 
-from nameko_opentelemetry.amqp import (
-    amqp_consumer_attributes,
-    amqp_publisher_attributes,
-)
+from nameko_opentelemetry.amqp import amqp_consumer_attributes
 from nameko_opentelemetry.entrypoints import EntrypointAdapter
-from nameko_opentelemetry.utils import call_function_get_frame
 
 
 publishers = {}
@@ -46,53 +41,6 @@ class RpcEntrypointAdapter(EntrypointAdapter):
         return attributes
 
 
-def collect_client_attributes(target_service, target_method, publisher, kwargs, config):
-    attributes = {
-        "nameko.rpc.target_service": target_service,
-        "nameko.rpc.target_method": target_method,
-        # XXX send payload? probably should, for consistency w/ everything else
-    }
-    attributes.update(amqp_publisher_attributes(publisher, kwargs, config))
-    return attributes
-
-
-def get_dependency(tracer, config, wrapped, instance, args, kwargs):
-    """ Wrap nameko.rpc.ClusterRpc.get_dependency so we can save a reference to
-    the underlying nameko.amqp.publish.Publisher, which we use in `initiate_call`
-    to extract the AMQP attributes.
-
-    XXX maybe we should just patch publisher.publish instead, and grab the active
-    span somehow
-    """
-    dependency_provider = instance
-    client = wrapped(*args, **kwargs)
-
-    # client will be cloned, so we have to key on .publish, which is an attribute
-    # on the underlying publisher
-    publishers[client.publish] = dependency_provider.publisher
-    return client
-
-
-def cluster_rpc_client_init(
-    tracer, config, wrapped, instance, args, kwargs
-):  # pragma: no cover -- call_function_get_frame messes up coverage collection
-    """ Wrap nameko.standalone.rpc.ClusterRpcClient.__init__ so we can save a
-    reference to the underlying nameko.amqp.publish.Publisher, which we use in
-    `initiate_call` to extract the AMQP attributes.
-
-    XXX maybe we should just patch publisher.publish instead, and grab the active
-    span somehow
-    """
-    frame, client = call_function_get_frame(wrapped, *args, **kwargs)
-    publish = frame.f_locals["publish"]
-    publisher = frame.f_locals["publisher"]
-
-    # we have to use the same key as in get_dependency above, because we handle
-    # the result for both cases in initiate_call
-    publishers[publish] = publisher
-    return client
-
-
 def initiate_call(tracer, config, wrapped, instance, args, kwargs):
     """ Wrap nameko.rpc.Client._call, so that we can start a span when an RPC call
     is initiated. This code path is active in the nameko.rpc.ClusterRpc and
@@ -101,21 +49,11 @@ def initiate_call(tracer, config, wrapped, instance, args, kwargs):
     """
     client = instance
 
-    publisher = publishers[client.publish]
-    attributes = collect_client_attributes(
-        client.service_name,
-        client.method_name,
-        publisher,
-        # unfortunately we can't extract the kwargs the RPC client ultimately passes
-        # so we redefine them here. this is brittle.
-        {
-            "routing_key": client.identifier,
-            "mandatory": True,
-            # XXX EXCLUDE if not send_headers (refactor to do publisher.publish first)
-            "extra_headers": encode_to_headers(client.context_data),
-        },
-        config,
-    )
+    attributes = {
+        "nameko.rpc.target_service": client.service_name,
+        "nameko.rpc.target_method": client.method_name,
+        # XXX send payload? probably should, for consistency w/ everything else
+    }
 
     span = tracer.start_span(
         kind=trace.SpanKind.CLIENT,
@@ -195,16 +133,6 @@ def entrypoint_handle_message(tracer, config, wrapped, instance, args, kwargs):
 
 def instrument(tracer, config):
     wrap_function_wrapper(
-        "nameko.rpc",
-        "ClusterRpc.get_dependency",
-        partial(get_dependency, tracer, config),
-    )
-    wrap_function_wrapper(
-        "nameko.standalone.rpc",
-        "ClusterRpcClient.__init__",
-        partial(cluster_rpc_client_init, tracer, config),
-    )
-    wrap_function_wrapper(
         "nameko.rpc", "Client._call", partial(initiate_call, tracer, config)
     )
     wrap_function_wrapper(
@@ -223,8 +151,6 @@ def instrument(tracer, config):
 
 
 def uninstrument():
-    unwrap(nameko.rpc.ClusterRpc, "get_dependency")
-    unwrap(nameko.standalone.rpc.ClusterRpcClient, "__init__")
     unwrap(nameko.rpc.Client, "_call")
     unwrap(nameko.rpc.RpcCall, "get_response")
     unwrap(nameko.rpc.RpcConsumer, "handle_message")

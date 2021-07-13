@@ -327,8 +327,7 @@ class TestScrubbing:
 
         # headers scrubbed at client
         assert (
-            client_span.attributes["nameko.amqp.headers"]
-            == f"{{'password': '{SCRUBBED}'}}"
+            f"'password': '{SCRUBBED}'" in client_span.attributes["nameko.amqp.headers"]
         )
         # context data scrubbed at server
         assert f"'password': '{SCRUBBED}'" in server_span.attributes["context_data"]
