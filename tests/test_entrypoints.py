@@ -4,6 +4,7 @@ import uuid
 from unittest.mock import Mock, patch
 
 import pytest
+from nameko.extensions import DependencyProvider
 from nameko.rpc import ServiceRpc, rpc
 from nameko.standalone.rpc import ServiceRpcClient
 from nameko.testing.services import dummy, entrypoint_hook, entrypoint_waiter
@@ -14,6 +15,52 @@ from opentelemetry.trace import SpanKind
 from opentelemetry.trace.status import StatusCode
 
 from nameko_opentelemetry.entrypoints import EntrypointAdapter
+
+
+class TestWrappedMethods:
+    @pytest.fixture
+    def track_worker_setup(self):
+        return Mock()
+
+    @pytest.fixture
+    def track_worker_result(self):
+        return Mock()
+
+    @pytest.fixture
+    def container(self, container_factory, track_worker_setup, track_worker_result):
+        class Tracker(DependencyProvider):
+            def worker_setup(self, worker_ctx):
+                track_worker_setup(worker_ctx)
+
+            def worker_result(self, worker_ctx, result, exc_info):
+                track_worker_result(worker_ctx)
+
+        class Service:
+            name = "service"
+
+            tracker = Tracker()
+
+            @rpc
+            def method(self, arg, kwarg=None):
+                return "OK"
+
+        container = container_factory(Service)
+        container.start()
+
+        return container
+
+    def test_wrapped_methods_called(
+        self, container, memory_exporter, track_worker_setup, track_worker_result
+    ):
+
+        with entrypoint_hook(container, "method") as hook:
+            assert hook("arg", kwarg="kwarg") == "OK"
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 1
+
+        assert len(track_worker_setup.call_args_list) == 1
+        assert len(track_worker_result.call_args_list) == 1
 
 
 class TestSpanAttributes:
