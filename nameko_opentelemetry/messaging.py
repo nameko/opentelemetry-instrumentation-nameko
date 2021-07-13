@@ -12,11 +12,9 @@ from opentelemetry.instrumentation.utils import unwrap
 from opentelemetry.propagate import inject
 from wrapt import FunctionWrapper, wrap_function_wrapper
 
-from nameko_opentelemetry.amqp import (
-    amqp_consumer_attributes,
-    amqp_publisher_attributes,
-)
+from nameko_opentelemetry.amqp import amqp_consumer_attributes
 from nameko_opentelemetry.entrypoints import EntrypointAdapter
+from nameko_opentelemetry.scrubbers import scrub
 from nameko_opentelemetry.utils import serialise_to_string, truncate
 
 
@@ -50,7 +48,6 @@ def get_dependency(tracer, config, wrapped, instance, args, kwargs):
     """
 
     (worker_ctx,) = args
-    publisher = instance
     exchange = instance.exchange
 
     def wrapped_publish(wrapped, instance, args, kwargs):
@@ -62,7 +59,8 @@ def get_dependency(tracer, config, wrapped, instance, args, kwargs):
         if config.get("send_request_payloads"):
 
             data, truncated = truncate(
-                serialise_to_string(msg), max_len=config.get("truncate_max_length")
+                serialise_to_string(scrub(msg, config)),
+                max_len=config.get("truncate_max_length"),
             )
             attributes.update(
                 {
@@ -70,7 +68,6 @@ def get_dependency(tracer, config, wrapped, instance, args, kwargs):
                     "nameko.messaging.payload_truncated": str(truncated),
                 }
             )
-        attributes.update(amqp_publisher_attributes(publisher.publisher, kwargs))
 
         with tracer.start_as_current_span(
             f"Publish to {target}", attributes=attributes, kind=trace.SpanKind.PRODUCER,

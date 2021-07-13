@@ -9,6 +9,7 @@ from nameko.testing.utils import get_extension
 from opentelemetry.trace import SpanKind
 
 from nameko_opentelemetry import active_tracer
+from nameko_opentelemetry.scrubbers import SCRUBBED
 
 
 class TestCaptureIncomingContext:
@@ -242,3 +243,91 @@ class TestAdditionalSpans:
         )[0]
 
         assert internal_span.name == "foobar"
+
+
+class TestScrubbing:
+    @pytest.fixture
+    def container(self, container_factory, rabbit_config):
+        class Service:
+            name = "service"
+
+            dispatch = EventDispatcher(expiration=10, headers={"password": "secret"})
+
+            @event_handler("service", "example")
+            def handle(self, payload):
+                return payload
+
+        container = container_factory(Service)
+        container.start()
+
+        return container
+
+    @pytest.fixture(params=["standalone", "dependency_provider"])
+    def dispatch(self, rabbit_config, request, container):
+        if request.param == "standalone":
+            dispatch = nameko.standalone.events.event_dispatcher(
+                expiration=10, headers={"password": "secret"}
+            )
+            yield lambda event_type, payload: dispatch("service", event_type, payload)
+
+        if request.param == "dependency_provider":
+            dp = get_extension(container, EventDispatcher)
+            yield dp.get_dependency(Mock(context_data={}))
+
+    def test_payload_scrubber(self, container, dispatch, memory_exporter):
+
+        payload = {"auth": "token"}
+        with entrypoint_waiter(container, "handle") as result:
+            dispatch("example", payload)
+        assert result.get() == payload
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 2
+
+        client_span = list(filter(lambda span: span.kind == SpanKind.PRODUCER, spans))[
+            0
+        ]
+
+        attributes = client_span.attributes
+        assert attributes["nameko.events.event_data"] == f"{{'auth': '{SCRUBBED}'}}"
+
+    def test_call_args_scrubber(self, container, dispatch, memory_exporter):
+
+        payload = {"auth": "token"}
+        with entrypoint_waiter(container, "handle") as result:
+            dispatch("example", payload)
+        assert result.get() == payload
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 2
+
+        server_span = list(filter(lambda span: span.kind == SpanKind.CONSUMER, spans))[
+            0
+        ]
+
+        attributes = server_span.attributes
+        assert attributes["call_args"] == f"{{'payload': {{'auth': '{SCRUBBED}'}}}}"
+
+    def test_header_scrubber(self, container, dispatch, memory_exporter):
+
+        payload = {"auth": "token"}
+        with entrypoint_waiter(container, "handle") as result:
+            dispatch("example", payload)
+        assert result.get() == payload
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 2
+
+        client_span = list(filter(lambda span: span.kind == SpanKind.PRODUCER, spans))[
+            0
+        ]
+        server_span = list(filter(lambda span: span.kind == SpanKind.CONSUMER, spans))[
+            0
+        ]
+
+        # headers scrubbed at client
+        assert (
+            f"'password': '{SCRUBBED}'" in client_span.attributes["nameko.amqp.headers"]
+        )
+        # context data scrubbed at server
+        assert f"'password': '{SCRUBBED}'" in server_span.attributes["context_data"]

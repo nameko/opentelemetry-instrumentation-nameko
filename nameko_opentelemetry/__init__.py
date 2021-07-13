@@ -2,7 +2,7 @@
 from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 
-from nameko_opentelemetry import entrypoints, events, http, messaging, rpc
+from nameko_opentelemetry import amqp, entrypoints, events, http, messaging, rpc
 from nameko_opentelemetry.package import _instruments
 from nameko_opentelemetry.version import __version__
 
@@ -28,6 +28,7 @@ class NamekoInstrumentor(BaseInstrumentor):
 
         entrypoints.instrument(tracer, config)
         http.instrument(tracer, config)
+        amqp.instrument(tracer, config)
         rpc.instrument(tracer, config)
         events.instrument(tracer, config)
         messaging.instrument(tracer, config)
@@ -35,6 +36,7 @@ class NamekoInstrumentor(BaseInstrumentor):
     def _uninstrument(self, **kwargs):
         entrypoints.uninstrument()
         http.uninstrument()
+        amqp.uninstrument()
         rpc.uninstrument()
         events.uninstrument()
         messaging.uninstrument()

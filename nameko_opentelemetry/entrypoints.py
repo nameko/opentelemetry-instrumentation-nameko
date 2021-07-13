@@ -36,6 +36,7 @@ from opentelemetry.util._time import _time_ns
 from wrapt import wrap_function_wrapper
 
 from nameko_opentelemetry import utils
+from nameko_opentelemetry.scrubbers import scrub
 
 
 DEFAULT_ADAPTERS = {
@@ -118,8 +119,8 @@ class EntrypointAdapter:
             attributes.update(
                 {
                     "context_data": utils.serialise_to_string(
-                        self.worker_ctx.data
-                    ),  # TODO scrub!
+                        scrub(self.worker_ctx.data, self.config)
+                    )
                 }
             )
 
@@ -141,7 +142,7 @@ class EntrypointAdapter:
                 redacted = False
 
             call_args, truncated = utils.truncate(
-                utils.serialise_to_string(call_args),
+                utils.serialise_to_string(scrub(call_args, self.config)),
                 max_len=self.config.get("truncate_max_length"),
             )
 
@@ -174,7 +175,10 @@ class EntrypointAdapter:
         """ Attributes describing the entrypoint method result.
         """
         if self.config.get("send_response_payloads"):
-            attributes = {"result": utils.safe_for_serialisation(result or "")}
+
+            attributes = {
+                "result": utils.serialise_to_string(scrub(result or "", self.config))
+            }
         else:
             attributes = {}
         return attributes
@@ -228,6 +232,8 @@ def worker_setup(tracer, config, wrapped, instance, args, kwargs):
 
     adapter.start_span(span)
 
+    wrapped(*args, **kwargs)
+
 
 def worker_result(tracer, config, wrapped, instance, args, kwargs):
     """ Wrap nameko.containers.ServiceContainer._worker_result.
@@ -255,6 +261,8 @@ def worker_result(tracer, config, wrapped, instance, args, kwargs):
     span.end(_time_ns())
     context.detach(token)
 
+    wrapped(*args, **kwargs)
+
 
 def instrument(tracer, config):
 
@@ -281,5 +289,5 @@ def instrument(tracer, config):
 
 
 def uninstrument():
-    unwrap(nameko.containers.ServiceContainer, "worker_setup")
-    unwrap(nameko.containers.ServiceContainer, "worker_result")
+    unwrap(nameko.containers.ServiceContainer, "_worker_setup")
+    unwrap(nameko.containers.ServiceContainer, "_worker_result")

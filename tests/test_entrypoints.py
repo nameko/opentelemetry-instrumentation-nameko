@@ -1,15 +1,66 @@
 # -*- coding: utf-8 -*-
 import socket
-from unittest.mock import patch
+import uuid
+from unittest.mock import Mock, patch
 
 import pytest
-from nameko.rpc import rpc
-from nameko.testing.services import dummy, entrypoint_hook
+from nameko.extensions import DependencyProvider
+from nameko.rpc import ServiceRpc, rpc
+from nameko.standalone.rpc import ServiceRpcClient
+from nameko.testing.services import dummy, entrypoint_hook, entrypoint_waiter
+from nameko.testing.utils import get_extension
 from nameko.utils import REDACTED
 from opentelemetry import trace
+from opentelemetry.trace import SpanKind
 from opentelemetry.trace.status import StatusCode
 
 from nameko_opentelemetry.entrypoints import EntrypointAdapter
+
+
+class TestWrappedMethods:
+    @pytest.fixture
+    def track_worker_setup(self):
+        return Mock()
+
+    @pytest.fixture
+    def track_worker_result(self):
+        return Mock()
+
+    @pytest.fixture
+    def container(self, container_factory, track_worker_setup, track_worker_result):
+        class Tracker(DependencyProvider):
+            def worker_setup(self, worker_ctx):
+                track_worker_setup(worker_ctx)
+
+            def worker_result(self, worker_ctx, result, exc_info):
+                track_worker_result(worker_ctx)
+
+        class Service:
+            name = "service"
+
+            tracker = Tracker()
+
+            @rpc
+            def method(self, arg, kwarg=None):
+                return "OK"
+
+        container = container_factory(Service)
+        container.start()
+
+        return container
+
+    def test_wrapped_methods_called(
+        self, container, memory_exporter, track_worker_setup, track_worker_result
+    ):
+
+        with entrypoint_hook(container, "method") as hook:
+            assert hook("arg", kwarg="kwarg") == "OK"
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 1
+
+        assert len(track_worker_setup.call_args_list) == 1
+        assert len(track_worker_result.call_args_list) == 1
 
 
 class TestSpanAttributes:
@@ -515,3 +566,81 @@ class TestPartialSpan:
 
         spans = memory_exporter.get_finished_spans()
         assert len(spans) == 0
+
+
+class TestScrubbing:
+    @pytest.fixture
+    def container(self, container_factory, rabbit_config):
+        class Service:
+            name = "service"
+
+            self_rpc = ServiceRpc("service")
+
+            @rpc
+            def method(self, arg, password=None):
+                return {"token": "should-be-secret"}
+
+        container = container_factory(Service)
+        container.start()
+
+        return container
+
+    @pytest.fixture(params=["standalone", "dependency_provider"])
+    def client(self, rabbit_config, request, container):
+
+        context_data = {
+            "call_id": f"service.method.{uuid.uuid4()}",
+            "token": "should-be-secret",
+        }
+
+        if request.param == "standalone":
+            with ServiceRpcClient("service", context_data=context_data) as client:
+                yield client
+        if request.param == "dependency_provider":
+            dp = get_extension(container, ServiceRpc)
+            yield dp.get_dependency(Mock(context_data=context_data))
+
+    def test_response_scrubber(self, container, client, memory_exporter):
+
+        with entrypoint_waiter(container, "method"):
+            assert client.method("arg", password="password") == {
+                "token": "should-be-secret"
+            }
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 2
+
+        server_span = list(filter(lambda span: span.kind == SpanKind.SERVER, spans))[0]
+
+        assert server_span.attributes["result"] == "{'token': 'scrubbed'}"
+
+    def test_call_args_scrubber(self, container, client, memory_exporter):
+
+        with entrypoint_waiter(container, "method"):
+            assert client.method("arg", password="password") == {
+                "token": "should-be-secret"
+            }
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 2
+
+        server_span = list(filter(lambda span: span.kind == SpanKind.SERVER, spans))[0]
+
+        assert (
+            server_span.attributes["call_args"]
+            == "{'arg': 'arg', 'password': 'scrubbed'}"
+        )
+
+    def test_context_data_scrubber(self, container, client, memory_exporter):
+
+        with entrypoint_waiter(container, "method"):
+            assert client.method("arg", password="password") == {
+                "token": "should-be-secret"
+            }
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 2
+
+        server_span = list(filter(lambda span: span.kind == SpanKind.SERVER, spans))[0]
+
+        assert "'token': 'scrubbed'" in server_span.attributes["context_data"]
