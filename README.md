@@ -83,8 +83,3 @@ class HttpEntrypointAdapter(EntrypointAdapter):
         """ Return attributes derived from any exception thrown by the entrypoint method.
         """
 ```
-
-# TODO
-
-- [ ] Refactor RPC patching to remove some brittleness
-- [ ] Add support for scrubbing sensitive data
