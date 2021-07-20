@@ -147,7 +147,7 @@ class TestNoTracer:
 
 
 class CustomAdapter(EntrypointAdapter):
-    def get_span_name(self):
+    def get_span_name(self, worker_ctx):
         return "custom_span_name"
 
 

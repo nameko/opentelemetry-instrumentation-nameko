@@ -31,12 +31,12 @@ class RpcEntrypointAdapter(EntrypointAdapter):
     """ Adapter customisation for RPC entrypoints.
     """
 
-    def get_attributes(self):
+    def get_attributes(self, worker_ctx):
         """ Include AMQP consumer attributes
         """
-        attributes = super().get_attributes()
+        attributes = super().get_attributes(worker_ctx)
 
-        consumer = self.worker_ctx.entrypoint.rpc_consumer.consumer
+        consumer = worker_ctx.entrypoint.rpc_consumer.consumer
         attributes.update(amqp_consumer_attributes(consumer))
         return attributes
 
