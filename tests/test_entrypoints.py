@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
+import gc
 import socket
 import uuid
 from unittest.mock import Mock, patch
+from weakref import WeakKeyDictionary
 
 import pytest
 from nameko.extensions import DependencyProvider
@@ -552,11 +554,16 @@ class TestPartialSpan:
 
         return container
 
-    @patch("nameko_opentelemetry.entrypoints.active_spans")
-    def test_span_not_started(self, active_spans, container, memory_exporter):
+    @pytest.fixture
+    def active_spans(self):
 
-        # fake a missing span
-        active_spans.pop.return_value = None
+        replacement = WeakKeyDictionary()
+        replacement.pop = lambda key, default: default  # always return default
+
+        with patch("nameko_opentelemetry.entrypoints.active_spans", new=replacement):
+            yield replacement
+
+    def test_span_not_started(self, active_spans, container, memory_exporter):
 
         with pytest.warns(UserWarning) as warnings:
             with entrypoint_hook(container, "method") as hook:
@@ -566,6 +573,20 @@ class TestPartialSpan:
 
         spans = memory_exporter.get_finished_spans()
         assert len(spans) == 0
+
+    def test_memory_leak(self, active_spans, container, memory_exporter):
+        """ Regression test for a memory leak in version 0.2.0.
+
+        `nameko_opentelemetry.entrypoints.active_spans` accumulated items even after the
+        workers terminated, because the values stored in the dictionary contained
+        a reference to the worker context, which is used as the key.
+        """
+        for _ in range(10):
+            with entrypoint_hook(container, "method") as hook:
+                assert hook("arg", kwarg="kwarg") == "OK"
+
+        gc.collect()  # force gc to remove any newly out-of-scope objects
+        assert len(active_spans) == 0
 
 
 class TestScrubbing:
