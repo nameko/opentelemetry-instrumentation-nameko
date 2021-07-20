@@ -22,18 +22,16 @@ class HttpEntrypointAdapter(EntrypointAdapter):
     https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md
     """
 
-    def get_metadata(self):
+    def get_metadata(self, worker_ctx):
         # TODO: why doesn't http entrypoint populate context data?
         # alternatively, why do AMQP (and gRPC?) extensions feel they can turn
         # _all_ amqp headers into context data?
-        return self.worker_ctx.args[0].headers
+        return worker_ctx.args[0].headers
 
-    def get_span_name(self):
-        return self.worker_ctx.entrypoint.url
+    def get_span_name(self, worker_ctx):
+        return worker_ctx.entrypoint.url
 
-    @property
-    def request(self):
-        worker_ctx = self.worker_ctx
+    def request(self, worker_ctx):
         entrypoint = worker_ctx.entrypoint
 
         method = getattr(entrypoint.container.service_cls, entrypoint.method_name)
@@ -43,14 +41,14 @@ class HttpEntrypointAdapter(EntrypointAdapter):
 
         return call_args.get("request")
 
-    def get_attributes(self):
+    def get_attributes(self, worker_ctx):
 
-        attributes = super().get_attributes()
+        attributes = super().get_attributes(worker_ctx)
         attributes.pop("call_args", None)
         attributes.pop("call_args_redacted", None)
         attributes.pop("call_args_truncated", None)
 
-        request = self.request
+        request = self.request(worker_ctx)
         data = request.data or request.form
 
         attributes.update(wsgi.collect_request_attributes(request.environ))
@@ -82,7 +80,7 @@ class HttpEntrypointAdapter(EntrypointAdapter):
 
         return attributes
 
-    def get_result_attributes(self, result):
+    def get_result_attributes(self, worker_ctx, result):
         """ Return serialisable result data
         """
         if not isinstance(result, Response):
@@ -117,7 +115,7 @@ class HttpEntrypointAdapter(EntrypointAdapter):
 
         return attributes
 
-    def get_status(self, result, exc_info):
+    def get_status(self, worker_ctx, result, exc_info):
         if exc_info:
             exc_type, exc, _ = exc_info
 
@@ -125,7 +123,7 @@ class HttpEntrypointAdapter(EntrypointAdapter):
                 StatusCode.ERROR, description="{}: {}".format(type(exc).__name__, exc),
             )
 
-        result_attributes = self.get_result_attributes(result)
+        result_attributes = self.get_result_attributes(worker_ctx, result)
         return Status(
             http_status_to_status_code(
                 result_attributes[SpanAttributes.HTTP_STATUS_CODE]

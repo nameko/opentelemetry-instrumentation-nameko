@@ -30,12 +30,12 @@ class EventHandlerEntrypointAdapter(EntrypointAdapter):
 
     span_kind = trace.SpanKind.CONSUMER
 
-    def get_attributes(self):
+    def get_attributes(self, worker_ctx):
         """ Include configuration of the entrypoint, and AMQP consumer attributes.
         """
-        attrs = super().get_attributes()
+        attrs = super().get_attributes(worker_ctx)
 
-        entrypoint = self.worker_ctx.entrypoint
+        entrypoint = worker_ctx.entrypoint
 
         attrs.update(
             {
@@ -45,7 +45,7 @@ class EventHandlerEntrypointAdapter(EntrypointAdapter):
             }
         )
 
-        consumer = self.worker_ctx.entrypoint.consumer
+        consumer = worker_ctx.entrypoint.consumer
         attrs.update(amqp_consumer_attributes(consumer))
         return attrs
 
