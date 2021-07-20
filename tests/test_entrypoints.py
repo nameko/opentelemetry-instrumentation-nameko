@@ -556,7 +556,7 @@ class TestPartialSpan:
     def test_span_not_started(self, active_spans, container, memory_exporter):
 
         # fake a missing span
-        active_spans.get.return_value = None
+        active_spans.pop.return_value = None
 
         with pytest.warns(UserWarning) as warnings:
             with entrypoint_hook(container, "method") as hook:

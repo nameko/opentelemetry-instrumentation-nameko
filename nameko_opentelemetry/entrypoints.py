@@ -244,7 +244,7 @@ def worker_result(tracer, config, wrapped, instance, args, kwargs):
     """
     (worker_ctx, result, exc_info) = args
 
-    activated = active_spans.get(worker_ctx)
+    activated = active_spans.pop(worker_ctx, None)
     if not activated:
         # something went wrong when starting the span; nothing more to do
         warnings.warn("worker result when no active span")
