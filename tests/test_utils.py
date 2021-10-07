@@ -12,6 +12,7 @@ from nameko_opentelemetry import utils
         ((1, 0.5, "string"), [1, 0.5, "string"]),
         ({1: 2, 0.5: 0.5}, {1: 2, 0.5: 0.5}),
         ({"string": "string"}, {"string": "string"}),
+        ({(1, 2, 3): "string"}, {(1, 2, 3): "string"}),
         ({1}, [1]),
         (object, repr(object)),
         (None, None),
