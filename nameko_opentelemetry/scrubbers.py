@@ -53,6 +53,8 @@ class DefaultScrubber:
         self.config = config
 
     def sensitive_key(self, key):
+        if not isinstance(key, str):
+            return False
         for prefix in self.COMMON_KEY_PREFIXES:
             if key.startswith(prefix):
                 chop = len(prefix)
@@ -72,19 +74,32 @@ class DefaultScrubber:
             data = data.copy()
             replace_keys = {}
             for key, value in data.items():
+
+                # replace values of sensitive keys,
+                # or recursively replace sensitive values
+                # e.g. {"password": "foo"} -> {"password": "***"}
+                # e.g. {"email": "foo@example.com"} -> {"email": "***"}
                 if self.sensitive_key(key):
                     value = self.REPLACEMENT
                 else:
                     value = self.scrub(value)
 
-                if self.sensitive_value(key):
-                    replace_keys[key] = value
+                # identify keys that themslves contain sensitive values,
+                # mark for replacement after the loop iteration
+                # e.g. {"foo@example.com": "something"} -> {"***": "something"}
+                # e.g. {(1, "foo@example.com", 2): "xyz"} -> {(1, "***", 2): "xyz"}
+                scrubbed_key = self.scrub(key)
+                clean = key == scrubbed_key
+                if not clean:
+                    replace_keys[key] = (scrubbed_key, value)
                 else:
+                    # if the key is clean, we can replace its value now
                     data[key] = value
 
-            for key, value in replace_keys.items():
+            # apply stashed key replacements
+            for key, (replacement_key, replacement_value) in replace_keys.items():
                 del data[key]
-                data[self.REPLACEMENT] = value
+                data[replacement_key] = replacement_value
 
             return data
 
