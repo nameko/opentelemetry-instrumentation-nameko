@@ -37,7 +37,7 @@ def safe_for_serialisation(value):
             for key, val in six.iteritems(value)
         }
     if isinstance(value, collections.abc.Iterable):
-        return list(map(safe_for_serialisation, value))
+        return type(value)(map(safe_for_serialisation, value))
     try:
         return six.text_type(value)
     except Exception:
