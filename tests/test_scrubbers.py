@@ -22,6 +22,8 @@ class TestDefaultScubber:
             dict(foo="bar"),
             (1, 2, 3),
             object(),
+            {object(): "foo"},
+            {(1, 2, 3): "foo"},
         ],
     )
     def test_innocuous(self, value, scrubber):
@@ -76,6 +78,13 @@ class TestDefaultScubber:
 
         # source data not modified
         assert data == {"matt@pacerevenue.com": "me"}
+
+    def test_dict_with_sensitive_value_nested_within_key(self, scrubber):
+        data = {("a", "matt@pacerevenue.com", "b"): "me"}
+        assert scrubber.scrub(data) == {("a", SCRUBBED, "b"): "me"}
+
+        # source data not modified
+        assert data == {("a", "matt@pacerevenue.com", "b"): "me"}
 
     def test_dict_with_sensitive_sub_key(self, scrubber):
         data = {"innocuous": {"email": "matt@pacerevenue.com"}}
