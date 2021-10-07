@@ -62,8 +62,6 @@ class DefaultScrubber:
         return key in self.SENSITIVE_KEYS
 
     def sensitive_value(self, value):
-        if not isinstance(value, str):
-            return False
         for regex in self.SENSITIVE_VALUES:  # pragma: no cover (branch to exit)
             return regex.match(value)
 
