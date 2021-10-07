@@ -9,24 +9,24 @@ from nameko_opentelemetry import utils
     (
         ("string", "string"),
         ([1, 0.5, "string"], [1, 0.5, "string"]),
-        ((1, 0.5, "string"), [1, 0.5, "string"]),
+        ((1, 0.5, "string"), (1, 0.5, "string")),
         ({1: 2, 0.5: 0.5}, {1: 2, 0.5: 0.5}),
         ({"string": "string"}, {"string": "string"}),
         ({(1, 2, 3): "string"}, {(1, 2, 3): "string"}),
-        ({1}, [1]),
+        ({1}, {1}),
         (object, repr(object)),
         (None, None),
         (
             ((1, 0.5, "string", object), [], {}, set()),
-            [[1, 0.5, "string", repr(object)], [], {}, []],
+            ((1, 0.5, "string", repr(object)), [], {}, set()),
         ),
         (
             ((), [1, 0.5, "string", object], {}),
-            [[], [1, 0.5, "string", repr(object)], {}],
+            ((), [1, 0.5, "string", repr(object)], {}),
         ),
         (
             ((), [], {1: {0.5: ("string", object)}}),
-            [[], [], {1: {0.5: ["string", repr(object)]}}],
+            ((), [], {1: {0.5: ("string", repr(object))}}),
         ),
         (b"bytes to decode", "bytes to decode"),
     ),
@@ -57,7 +57,7 @@ def test_serialise_to_json():
 def test_serialise_to_string():
     assert (
         utils.serialise_to_string(((), [], {1: {0.5: ("string", object)}}))
-        == "[[], [], {1: {0.5: ['string', \"<class 'object'>\"]}}]"
+        == "((), [], {1: {0.5: ('string', \"<class 'object'>\")}})"
     )
 
 
