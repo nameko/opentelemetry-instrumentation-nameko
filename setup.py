@@ -20,6 +20,7 @@ with open(PACKAGE_FILENAME) as f:
 setup(
     name="opentelemetry-instrumentation-nameko",
     description="Nameko extension producing opentelemetry data",
+    python_requires=">=3.7",
     version=PACKAGE_INFO["__version__"],
     author="Nameko Authors",
     url="https://github.com/nameko/opentelemetry-instrumentation-nameko",

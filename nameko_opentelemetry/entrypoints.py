@@ -23,6 +23,7 @@ import socket
 import warnings
 from collections import defaultdict
 from functools import partial
+from time import time_ns
 from traceback import format_exception
 from weakref import WeakKeyDictionary
 
@@ -32,7 +33,6 @@ from opentelemetry import context, trace
 from opentelemetry.instrumentation.utils import unwrap
 from opentelemetry.propagate import extract
 from opentelemetry.trace.status import Status, StatusCode
-from opentelemetry.util._time import _time_ns
 from wrapt import wrap_function_wrapper
 
 from nameko_opentelemetry import utils
@@ -58,7 +58,7 @@ adapter_types = defaultdict(lambda: EntrypointAdapter)
 
 
 class EntrypointAdapter:
-    """ Default entrypoint adapter. This implementation is used unless there's
+    """Default entrypoint adapter. This implementation is used unless there's
     a more specific adapter set for the firing entrypoint's type.
     """
 
@@ -102,7 +102,7 @@ class EntrypointAdapter:
             span.set_status(status)
 
     def get_attributes(self, worker_ctx):
-        """ Common attributes for most entrypoints, and hooks into subclassable
+        """Common attributes for most entrypoints, and hooks into subclassable
         implementations to fetch optional attributes.
         """
         entrypoint = worker_ctx.entrypoint
@@ -137,8 +137,7 @@ class EntrypointAdapter:
         return attributes
 
     def get_call_args_attributes(self, worker_ctx, call_args, redacted):
-        """ ...
-        """
+        """..."""
         if self.config.get("send_request_payloads"):
             call_args, truncated = utils.truncate(
                 utils.serialise_to_string(scrub(call_args, self.config)),
@@ -152,8 +151,7 @@ class EntrypointAdapter:
             }
 
     def get_header_attributes(self, worker_ctx):
-        """ ...
-        """
+        """..."""
         if self.config.get("send_headers"):
             return {
                 "context_data": utils.serialise_to_string(
@@ -162,8 +160,7 @@ class EntrypointAdapter:
             }
 
     def get_exception_attributes(self, worker_ctx, exc_info):
-        """ Additional attributes to save alongside a worker exception.
-        """
+        """Additional attributes to save alongside a worker exception."""
         exc_type, exc, _ = exc_info
 
         try:
@@ -177,16 +174,14 @@ class EntrypointAdapter:
         }
 
     def get_result_attributes(self, worker_ctx, result):
-        """ Attributes describing the entrypoint method result.
-        """
+        """Attributes describing the entrypoint method result."""
         if self.config.get("send_response_payloads"):
             return {
                 "result": utils.serialise_to_string(scrub(result or "", self.config))
             }
 
     def get_status(self, worker_ctx, result, exc_info):
-        """ Span status for this worker.
-        """
+        """Span status for this worker."""
         if exc_info:
             exc_type, exc, _ = exc_info
 
@@ -205,7 +200,7 @@ def adapter_factory(worker_ctx, config):
 
 
 def worker_setup(tracer, config, wrapped, instance, args, kwargs):
-    """ Wrap nameko.containers.ServiceContainer._worker_setup.
+    """Wrap nameko.containers.ServiceContainer._worker_setup.
 
     Creates a new span for each entrypoint that fires. The name of the
     span and its attributes are determined by the entrypoint "adapter"
@@ -221,7 +216,7 @@ def worker_setup(tracer, config, wrapped, instance, args, kwargs):
         adapter.get_span_name(worker_ctx),
         kind=adapter.span_kind,
         attributes={"hostname": socket.gethostname()},
-        start_time=_time_ns(),
+        start_time=time_ns(),
     )
     # don't automatically record the exception or set status, because
     # we do that in the entrypoint adapter's `end_span` method
@@ -237,7 +232,7 @@ def worker_setup(tracer, config, wrapped, instance, args, kwargs):
 
 
 def worker_result(tracer, config, wrapped, instance, args, kwargs):
-    """ Wrap nameko.containers.ServiceContainer._worker_result.
+    """Wrap nameko.containers.ServiceContainer._worker_result.
 
     Finds the existing span for this worker and closes it. Additional
     attributes and status are set by the configured entrypoint adapter.
@@ -259,7 +254,7 @@ def worker_result(tracer, config, wrapped, instance, args, kwargs):
     else:
         activation.__exit__(*exc_info)
 
-    span.end(_time_ns())
+    span.end(time_ns())
     context.detach(token)
 
     wrapped(*args, **kwargs)

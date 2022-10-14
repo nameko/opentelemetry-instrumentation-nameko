@@ -8,6 +8,7 @@ entrypoint fires, and therefore the normal entrypoint instrumentation won't appl
 The entrypoint adapter for RPC entrypoints is defined here too.
 """
 from functools import partial
+from time import time_ns
 from weakref import WeakKeyDictionary
 
 import nameko.rpc
@@ -16,7 +17,6 @@ from opentelemetry import trace
 from opentelemetry.instrumentation.utils import unwrap
 from opentelemetry.propagate import inject
 from opentelemetry.trace.status import Status, StatusCode
-from opentelemetry.util._time import _time_ns
 from wrapt import wrap_function_wrapper
 
 from nameko_opentelemetry.amqp import amqp_consumer_attributes
@@ -28,12 +28,10 @@ active_spans = WeakKeyDictionary()
 
 
 class RpcEntrypointAdapter(EntrypointAdapter):
-    """ Adapter customisation for RPC entrypoints.
-    """
+    """Adapter customisation for RPC entrypoints."""
 
     def get_attributes(self, worker_ctx):
-        """ Include AMQP consumer attributes
-        """
+        """Include AMQP consumer attributes"""
         attributes = super().get_attributes(worker_ctx)
 
         consumer = worker_ctx.entrypoint.rpc_consumer.consumer
@@ -42,7 +40,7 @@ class RpcEntrypointAdapter(EntrypointAdapter):
 
 
 def initiate_call(tracer, config, wrapped, instance, args, kwargs):
-    """ Wrap nameko.rpc.Client._call, so that we can start a span when an RPC call
+    """Wrap nameko.rpc.Client._call, so that we can start a span when an RPC call
     is initiated. This code path is active in the nameko.rpc.ClusterRpc and
     nameko.rpc.ServiceRpc dependency providers, as well as the standalone client
     defined in nameko.rpc.standalone.
@@ -59,7 +57,7 @@ def initiate_call(tracer, config, wrapped, instance, args, kwargs):
         kind=trace.SpanKind.CLIENT,
         name=f"RPC to {instance.identifier}",
         attributes=attributes,
-        start_time=_time_ns(),
+        start_time=time_ns(),
     )
     activation = trace.use_span(span)
     activation.__enter__()
@@ -76,7 +74,7 @@ def initiate_call(tracer, config, wrapped, instance, args, kwargs):
 
 
 def get_response(tracer, config, wrapped, instance, args, kwargs):
-    """ Wrap nameko.rpc.Client._call, so that we can terminate the active span.
+    """Wrap nameko.rpc.Client._call, so that we can terminate the active span.
 
     This code path is active in the nameko.rpc.ClusterRpc and nameko.rpc.ServiceRpc
     dependency providers, as well as the standalone client defined in
@@ -85,12 +83,12 @@ def get_response(tracer, config, wrapped, instance, args, kwargs):
     resp = wrapped(*args, **kwargs)
     activation, span = active_spans[instance]
     activation.__exit__(None, None, None)
-    span.end(_time_ns())
+    span.end(time_ns())
     return resp
 
 
 def consumer_handle_message(tracer, config, wrapped, instance, args, kwargs):
-    """ Wrap nameko.rpc.RpcConsumer.handle_message.
+    """Wrap nameko.rpc.RpcConsumer.handle_message.
 
     In the case where an RPC message is received for a method that doesn't exist,
     no entrypoint will fire and so the entrypoint instrumentation won't
@@ -112,7 +110,7 @@ def consumer_handle_message(tracer, config, wrapped, instance, args, kwargs):
 
 
 def entrypoint_handle_message(tracer, config, wrapped, instance, args, kwargs):
-    """ Wrap nameko.rpc.Rpc.handle_message.
+    """Wrap nameko.rpc.Rpc.handle_message.
 
     In the case where an RPC message is received for a valid method, but with an
     invalid signature, no entrypoint will fire and so the entrypoint instrumentation
