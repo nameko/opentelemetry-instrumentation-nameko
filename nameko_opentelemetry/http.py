@@ -18,7 +18,7 @@ from nameko_opentelemetry.scrubbers import scrub
 
 
 class HttpEntrypointAdapter(EntrypointAdapter):
-    """ Implemented according to
+    """Implemented according to
     https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md
     """
 
@@ -81,8 +81,7 @@ class HttpEntrypointAdapter(EntrypointAdapter):
         return attributes
 
     def get_result_attributes(self, worker_ctx, result):
-        """ Return serialisable result data
-        """
+        """Return serialisable result data"""
         if not isinstance(result, Response):
             if isinstance(result, tuple):
                 if len(result) == 3:
@@ -120,7 +119,8 @@ class HttpEntrypointAdapter(EntrypointAdapter):
             exc_type, exc, _ = exc_info
 
             return Status(
-                StatusCode.ERROR, description="{}: {}".format(type(exc).__name__, exc),
+                StatusCode.ERROR,
+                description="{}: {}".format(type(exc).__name__, exc),
             )
 
         result_attributes = self.get_result_attributes(worker_ctx, result)
@@ -148,7 +148,9 @@ def wsgi_app_call(tracer, config, wrapped, instance, args, kwargs):
 
 def instrument(tracer, config):
     wrap_function_wrapper(
-        "nameko.web.server", "WsgiApp.__call__", partial(wsgi_app_call, tracer, config),
+        "nameko.web.server",
+        "WsgiApp.__call__",
+        partial(wsgi_app_call, tracer, config),
     )
 
 

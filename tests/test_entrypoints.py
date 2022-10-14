@@ -131,7 +131,7 @@ class TestNoTracer:
 
     @pytest.fixture
     def trace_provider(self):
-        """ Temporarily replace the configured trace provider with the default
+        """Temporarily replace the configured trace provider with the default
         provider that would be used if no SDK was in use.
         """
         with patch("nameko_opentelemetry.trace") as patched:
@@ -575,7 +575,7 @@ class TestPartialSpan:
         assert len(spans) == 0
 
     def test_memory_leak(self, active_spans, container, memory_exporter):
-        """ Regression test for a memory leak in version 0.2.0.
+        """Regression test for a memory leak in version 0.2.0.
 
         `nameko_opentelemetry.entrypoints.active_spans` accumulated items even after the
         workers terminated, because the values stored in the dictionary contained

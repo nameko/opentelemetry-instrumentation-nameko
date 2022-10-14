@@ -93,8 +93,7 @@ class TestSpanName:
 
 
 class TestNoEntrypointFired:
-    """ Test cases where the request is aborted before finding an entrypoint
-    """
+    """Test cases where the request is aborted before finding an entrypoint"""
 
     @pytest.fixture
     def container(self, container_factory, web_config):
@@ -213,8 +212,7 @@ class TestCallArgs:
         return container
 
     def test_wsgi_common(self, container, web_session, memory_exporter):
-        """ These are determined by the Opentelemetry WSGI middleware module
-        """
+        """These are determined by the Opentelemetry WSGI middleware module"""
         with entrypoint_waiter(container, "get_resource"):
             resp = web_session.get("/resource")
 
