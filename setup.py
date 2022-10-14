@@ -30,6 +30,7 @@ setup(
         "opentelemetry-api",
         "opentelemetry-instrumentation",
         "opentelemetry-instrumentation-wsgi",
+        "importlib-metadata==4.13.0",
     ],
     extras_require={
         "dev": list(PACKAGE_INFO["_instruments"])
