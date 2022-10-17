@@ -66,7 +66,7 @@ class DefaultScrubber:
             return regex.match(value)
 
     def scrub(self, data):
-        """ `data` can be a dict, an iterable, or a scalar value.
+        """`data` can be a dict, an iterable, or a scalar value.
 
         Returns a scubbed version and leaves original unchanged.
         """

@@ -2,8 +2,8 @@ static:
 	pre-commit run --all-files
 
 test:
-	py.test tests -v
+	nameko test -v
 
 coverage:
-	coverage run -m pytest tests -v
+	coverage run -m nameko test -v
 	coverage report

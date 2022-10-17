@@ -14,14 +14,12 @@ logger = logging.getLogger(__name__)
 
 
 def serialise_to_json(value):
-    """ Safely serialise ``value`` to JSON formatted string
-    """
+    """Safely serialise ``value`` to JSON formatted string"""
     return json.dumps(safe_for_serialisation(value))
 
 
 def serialise_to_string(value):
-    """ Safely serialise ``value`` to string representation
-    """
+    """Safely serialise ``value`` to string representation"""
     return str(safe_for_serialisation(value))
 
 

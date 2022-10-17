@@ -97,7 +97,9 @@ def publish(tracer, config, wrapped, instance, args, kwargs):
 
 def instrument(tracer, config):
     wrap_function_wrapper(
-        "nameko.amqp.publish", "Publisher.publish", partial(publish, tracer, config),
+        "nameko.amqp.publish",
+        "Publisher.publish",
+        partial(publish, tracer, config),
     )
 
 

@@ -25,14 +25,12 @@ from nameko_opentelemetry.utils import (
 
 
 class EventHandlerEntrypointAdapter(EntrypointAdapter):
-    """ Adapter customisation for EventHandler entrypoints.
-    """
+    """Adapter customisation for EventHandler entrypoints."""
 
     span_kind = trace.SpanKind.CONSUMER
 
     def get_attributes(self, worker_ctx):
-        """ Include configuration of the entrypoint, and AMQP consumer attributes.
-        """
+        """Include configuration of the entrypoint, and AMQP consumer attributes."""
         attrs = super().get_attributes(worker_ctx)
 
         entrypoint = worker_ctx.entrypoint
@@ -72,7 +70,7 @@ def collect_client_attributes(
 
 
 def get_dependency(tracer, config, wrapped, instance, args, kwargs):
-    """ Wrap nameko.events.EventDispatcher.get_dependency.
+    """Wrap nameko.events.EventDispatcher.get_dependency.
 
     Creates a PRODUCER span around the dispatch of the message, including all the
     AMQP publisher attributes.
@@ -107,7 +105,7 @@ def get_dependency(tracer, config, wrapped, instance, args, kwargs):
 def event_dispatcher(
     tracer, config, wrapped, instance, args, kwargs
 ):  # pragma: no cover -- call_function_get_frame messes up coverage collection
-    """ Wrap nameko.standalone.events.event_dispatcher.
+    """Wrap nameko.standalone.events.event_dispatcher.
 
     Creates a PRODUCER span around the dispatch of the message, including all the
     AMQP publisher attributes.
@@ -126,7 +124,12 @@ def event_dispatcher(
         exchange = get_event_exchange(service_name)
 
         attributes = collect_client_attributes(
-            config, exchange.name, event_type, event_data, publisher, kwargs,
+            config,
+            exchange.name,
+            event_type,
+            event_data,
+            publisher,
+            kwargs,
         )
 
         with tracer.start_as_current_span(

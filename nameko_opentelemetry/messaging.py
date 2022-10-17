@@ -19,14 +19,12 @@ from nameko_opentelemetry.utils import serialise_to_string, truncate
 
 
 class ConsumerEntrypointAdapter(EntrypointAdapter):
-    """ Adapter customisation for Consumer entrypoints.
-    """
+    """Adapter customisation for Consumer entrypoints."""
 
     span_kind = trace.SpanKind.CONSUMER
 
     def get_attributes(self, worker_ctx):
-        """ Include configuration of the entrypoint, and AMQP consumer attributes.
-        """
+        """Include configuration of the entrypoint, and AMQP consumer attributes."""
         attrs = super().get_attributes(worker_ctx)
 
         entrypoint = worker_ctx.entrypoint
@@ -41,7 +39,7 @@ class ConsumerEntrypointAdapter(EntrypointAdapter):
 
 
 def get_dependency(tracer, config, wrapped, instance, args, kwargs):
-    """ Wrap nameko.events.Consumer.get_dependency.
+    """Wrap nameko.events.Consumer.get_dependency.
 
     Creates a PRODUCER span around the publish of the message, including all the
     AMQP publisher attributes.
@@ -70,7 +68,9 @@ def get_dependency(tracer, config, wrapped, instance, args, kwargs):
             )
 
         with tracer.start_as_current_span(
-            f"Publish to {target}", attributes=attributes, kind=trace.SpanKind.PRODUCER,
+            f"Publish to {target}",
+            attributes=attributes,
+            kind=trace.SpanKind.PRODUCER,
         ):
             inject(worker_ctx.context_data)
             return wrapped(*args, **kwargs)

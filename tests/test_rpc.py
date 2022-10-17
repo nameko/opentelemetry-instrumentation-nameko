@@ -59,8 +59,7 @@ class TestCaptureIncomingContext:
 
 
 class TestNoEntrypointFired:
-    """ Test cases where the request is aborted before finding an entrypoint
-    """
+    """Test cases where the request is aborted before finding an entrypoint"""
 
     @pytest.fixture
     def container(self, container_factory, rabbit_config):
