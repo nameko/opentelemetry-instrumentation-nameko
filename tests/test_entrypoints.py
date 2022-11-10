@@ -250,6 +250,7 @@ class TestResultAttributes:
             assert attributes["result_truncated"] == "False"
         else:
             assert "result" not in attributes
+            assert "result_truncated" not in attributes
 
     def test_response_truncated(self, container, memory_exporter, send_response_payloads):
         with entrypoint_hook(container, "method_truncated") as hook:
@@ -266,6 +267,7 @@ class TestResultAttributes:
             assert attributes["result_truncated"] == "True"
         else:
             assert "result" not in attributes
+            assert "result_truncated" not in attributes
 
     def test_exception(self, container, memory_exporter, send_response_payloads):
 
@@ -283,6 +285,7 @@ class TestResultAttributes:
             assert attributes.get("result") is None
         else:
             assert "result" not in attributes
+            assert "result_truncated" not in attributes
 
     def test_unserializable_result(
         self, container, memory_exporter, unserializable_object, send_response_payloads
@@ -301,6 +304,7 @@ class TestResultAttributes:
             assert attributes["result"] == str(unserializable_object)
         else:
             assert "result" not in attributes
+            assert "result_truncated" not in attributes
 
 
 class TestExceptions:
