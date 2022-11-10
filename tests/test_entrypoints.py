@@ -265,7 +265,7 @@ class TestResultAttributes:
         assert attributes["method_name"] == "method_truncated"
 
         if send_response_payloads:
-            assert attributes["result"] == "OK" * 100
+            assert len(attributes["result"]) == 200
             assert attributes["result_truncated"] == "True"
         else:
             assert "result" not in attributes
