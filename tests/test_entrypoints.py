@@ -252,7 +252,9 @@ class TestResultAttributes:
             assert "result" not in attributes
             assert "result_truncated" not in attributes
 
-    def test_response_truncated(self, container, memory_exporter, send_response_payloads):
+    def test_response_truncated(
+        self, container, memory_exporter, send_response_payloads
+    ):
         with entrypoint_hook(container, "method_truncated") as hook:
             assert hook("arg", kwarg="kwarg") == "OK" * 1000
 
