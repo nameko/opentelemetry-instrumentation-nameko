@@ -197,6 +197,8 @@ class TestResultAttributes:
     def config(self, config, send_response_payloads):
         # disable headers based on param
         config["send_response_payloads"] = send_response_payloads
+        # override default truncation length
+        config["truncate_max_length"] = 200
         return config
 
     @pytest.fixture
@@ -214,6 +216,10 @@ class TestResultAttributes:
             @rpc
             def method(self, arg, kwarg=None):
                 return "OK"
+
+            @rpc
+            def method_truncated(self, arg, kwarg=None):
+                return "OK" * 1000
 
             @dummy
             def unserializable(self, arg, kwarg=None):
@@ -241,8 +247,29 @@ class TestResultAttributes:
 
         if send_response_payloads:
             assert attributes["result"] == "OK"
+            assert attributes["result_truncated"] == "False"
         else:
             assert "result" not in attributes
+            assert "result_truncated" not in attributes
+
+    def test_response_truncated(
+        self, container, memory_exporter, send_response_payloads
+    ):
+        with entrypoint_hook(container, "method_truncated") as hook:
+            assert hook("arg", kwarg="kwarg") == "OK" * 1000
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 1
+
+        attributes = spans[0].attributes
+        assert attributes["method_name"] == "method_truncated"
+
+        if send_response_payloads:
+            assert len(attributes["result"]) == 200
+            assert attributes["result_truncated"] == "True"
+        else:
+            assert "result" not in attributes
+            assert "result_truncated" not in attributes
 
     def test_exception(self, container, memory_exporter, send_response_payloads):
 
@@ -260,6 +287,7 @@ class TestResultAttributes:
             assert attributes.get("result") is None
         else:
             assert "result" not in attributes
+            assert "result_truncated" not in attributes
 
     def test_unserializable_result(
         self, container, memory_exporter, unserializable_object, send_response_payloads
@@ -278,6 +306,7 @@ class TestResultAttributes:
             assert attributes["result"] == str(unserializable_object)
         else:
             assert "result" not in attributes
+            assert "result_truncated" not in attributes
 
 
 class TestExceptions:

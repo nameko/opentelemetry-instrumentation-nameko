@@ -176,8 +176,14 @@ class EntrypointAdapter:
     def get_result_attributes(self, worker_ctx, result):
         """Attributes describing the entrypoint method result."""
         if self.config.get("send_response_payloads"):
+            result, truncated = utils.truncate(
+                utils.serialise_to_string(scrub(result or "", self.config)),
+                max_len=self.config.get("truncate_max_length"),
+            )
+
             return {
-                "result": utils.serialise_to_string(scrub(result or "", self.config))
+                "result": result,
+                "result_truncated": str(truncated),
             }
 
     def get_status(self, worker_ctx, result, exc_info):
