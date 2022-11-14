@@ -74,8 +74,15 @@ class HttpEntrypointAdapter(EntrypointAdapter):
             )
 
         if self.config.get("send_request_payloads"):
+            response, truncated = utils.truncate(
+                utils.serialise_to_string(scrub(data, self.config)),
+                max_len=self.config.get("truncate_max_length"),
+            )
             attributes.update(
-                {"request.data": utils.serialise_to_string(scrub(data, self.config))}
+                {
+                    "request.data": response,
+                    "request.data_truncated": str(truncated),
+                }
             )
 
         return attributes
