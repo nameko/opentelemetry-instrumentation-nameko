@@ -250,7 +250,7 @@ class TestCallArgs:
         self, container, web_session, memory_exporter, send_request_payloads
     ):
         with entrypoint_waiter(container, "get_resource"):
-            resp = web_session.get("/resource", data="A"*200)
+            resp = web_session.get("/resource", data="A" * 200)
 
         assert resp.status_code == 200
 
@@ -260,7 +260,7 @@ class TestCallArgs:
         attributes = spans[0].attributes
 
         if send_request_payloads:
-            assert attributes["request.data"] == "A"*100
+            assert attributes["request.data"] == "A" * 100
         else:
             assert "request.data" not in attributes
 
