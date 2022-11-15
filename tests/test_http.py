@@ -195,6 +195,8 @@ class TestCallArgs:
         config["send_headers"] = send_headers
         # disable request payload based on param
         config["send_request_payloads"] = send_request_payloads
+        # override default truncation length
+        config["truncate_max_length"] = 100
         return config
 
     @pytest.fixture
@@ -241,6 +243,24 @@ class TestCallArgs:
 
         if send_request_payloads:
             assert attributes["request.data"] == "foobar"
+        else:
+            assert "request.data" not in attributes
+
+    def test_request_data_truncated(
+        self, container, web_session, memory_exporter, send_request_payloads
+    ):
+        with entrypoint_waiter(container, "get_resource"):
+            resp = web_session.get("/resource", data="A" * 200)
+
+        assert resp.status_code == 200
+
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 1
+
+        attributes = spans[0].attributes
+
+        if send_request_payloads:
+            assert attributes["request.data"] == "A" * 100
         else:
             assert "request.data" not in attributes
 
