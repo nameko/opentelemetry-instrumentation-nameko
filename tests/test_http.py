@@ -89,7 +89,7 @@ class TestSpanName:
         spans = memory_exporter.get_finished_spans()
         assert len(spans) == 1
 
-        assert spans[0].name == "HTTP GET"
+        assert spans[0].name == "GET /missing"
 
 
 class TestNoEntrypointFired:
@@ -121,7 +121,7 @@ class TestNoEntrypointFired:
 
         span = spans[0]
 
-        assert spans[0].name == "HTTP GET"
+        assert spans[0].name == "GET /missing"
 
         assert not span.status.is_ok
         assert span.status.status_code == StatusCode.ERROR
@@ -139,7 +139,7 @@ class TestNoEntrypointFired:
 
         span = spans[0]
 
-        assert spans[0].name == "HTTP POST"
+        assert spans[0].name == "POST /resource"
 
         assert not span.status.is_ok
         assert span.status.status_code == StatusCode.ERROR
