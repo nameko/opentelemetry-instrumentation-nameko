@@ -38,7 +38,7 @@ setup(
             "coverage",
             "pytest",
             "opentelemetry-sdk",
-            "opentelemetry-instrumentation-requests>=0.39b0",
+            "opentelemetry-instrumentation-requests",
         ],
         "instruments": PACKAGE_INFO["_instruments"],
     },
